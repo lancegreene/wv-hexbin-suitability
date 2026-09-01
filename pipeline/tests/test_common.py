@@ -21,14 +21,18 @@ def test_pct_overlap_empty_polys_returns_zeros(seven_cells):
     assert (pct == 0).all()
 
 
-def test_pct_overlap_repairs_invalid_polygons(seven_cells):
-    # Bowtie (self-intersecting) polygon spanning cell 0's neighborhood: raw
-    # overlay would error or silently drop it; the helper must repair and measure.
+def test_pct_overlap_repairs_invalid_polygons(seven_cells, capsys):
+    # Bowtie (self-intersecting) polygon spanning cell 0's neighborhood. Current
+    # GEOS happens to overlay bowties correctly even unrepaired, so the value
+    # assertions alone can't prove the repair exists — the repair-message
+    # assertion binds this test to the make_valid block (its loud print is part
+    # of the fail-visibly contract, not decoration).
     minx, miny, maxx, maxy = seven_cells.total_bounds
     bowtie = Polygon([(minx, miny), (maxx, maxy), (minx, maxy), (maxx, miny)])
     assert not bowtie.is_valid
     polys = gpd.GeoDataFrame(geometry=[bowtie], crs="EPSG:4326")
     pct = pct_overlap(seven_cells, polys)
+    assert "repairing 1 invalid polygon" in capsys.readouterr().out
     assert pct.max() > 10  # repaired bowtie genuinely covers parts of the cells
     assert len(pct) == len(seven_cells)
 

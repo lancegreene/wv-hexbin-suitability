@@ -174,3 +174,22 @@ functional class; an unimproved road is not site access.
     outside the published domain: `ep` (78), `' '` single space (8), null (10),
     `dw` (1), `S5` (1), and uppercase `EP` (1, distinct from `ep`).
   - Some polygons fail `is_valid`; repair before overlay.
+
+## 54081 (Raleigh County) run log
+
+**2026-09-01 — first full pipeline run.** All stages green; artifacts
+published to `data/processed/54081/`.
+
+| Metric | Value |
+|---|---|
+| Res-10 cells | 118,972 |
+| Parcels | 60,683 (100% with >=1 cell; 63 without ParcelSummary attributes) |
+| Crosswalk rows | 275,421 |
+| County mean slope | 35.8% |
+| Cells in CWS water service | 12.1% (9,152 authoritative / 5,227 modeled) |
+| Cells with underground-mine coverage | 24,802 (20.8%) |
+| Cells with A/AE flood coverage | 8,180; floodway 784 |
+| Median distance to improved road | 272 m |
+| Median distance to transmission | 2,109 m |
+| Dominant NLCD class | 41 deciduous forest (76.2%) |
+| Measure-stage wall time | ~27 min (grid to last measure module; slope zonal passes alone ~12.5 min) |

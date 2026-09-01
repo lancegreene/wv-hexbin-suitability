@@ -68,6 +68,17 @@ mean of their cells.
 - Raw downloads land in `data/raw/` and are never modified in place.
   `data/raw/` is gitignored; record provenance in `docs/data-sources.md`.
 
+## Commands
+
+- Pipeline env: `.venv/Scripts/python.exe` (repo-root venv; created via
+  `py -3 -m venv .venv` + `pip install -e pipeline`)
+- Run a stage: `.venv/Scripts/python.exe -m hexbin_pipeline <fetch|grid|measure|xwalk|validate|all> --fips 54081`
+- Single measure module: `... measure --fips 54081 --only slope`
+- Tests: `.venv/Scripts/python.exe -m pytest pipeline/tests -q`
+- Published artifacts land in `data/processed/<fips>/`; intermediates in
+  `data/work/<fips>/`; the measure stage is the slow one (~30 min/county,
+  slope zonal passes dominate).
+
 ## Scope
 
 MVP is a single county. Do not add statewide processing, additional

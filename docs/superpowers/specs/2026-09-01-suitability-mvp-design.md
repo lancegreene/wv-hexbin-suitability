@@ -82,7 +82,10 @@ One CLI, county FIPS required, stages independently re-runnable:
   EPSG:4326; all measurement in EPSG:26917 (explicit reprojection).
 - **measure** — one module per criterion, each writing its columns to the
   cells table.
-- **xwalk** — parcel↔cell overlap fractions via DuckDB spatial.
+- **xwalk** — parcel↔cell overlap fractions via geopandas overlay
+  (implemented with gpd.overlay rather than DuckDB spatial — same result,
+  avoids the spatial extension in the pipeline; DuckDB remains in the stack
+  for artifact sanity queries and the browser app).
 - **validate** — hard gate before artifacts are published to
   `data/processed/`: cell counts, coverage %, null audit. Halts loudly on
   anomalies; zero-feature results never pass silently.

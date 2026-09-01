@@ -45,8 +45,18 @@ KEEP_FIELDS = ATTR_KEEP_FIELDS + ["Acres_C"]
 
 
 def load_county_parcels(fips):
-    gdb = next(Path(paths.raw_dir("parcels")).glob("*.gdb"))
-    county = COUNTY_VALUE[fips]
+    gdb = next(Path(paths.raw_dir("parcels")).glob("*.gdb"), None)
+    if gdb is None:
+        raise RuntimeError(
+            f"parcels: no *.gdb found in {paths.raw_dir('parcels')} — the statewide "
+            f"parcel GDB is a MANUAL input (not fetched): extract the WVGISTC tax "
+            f"parcel geodatabase zip there. See 'Manual inputs' in docs/data-sources.md")
+    county = COUNTY_VALUE.get(fips)
+    if county is None:
+        raise RuntimeError(
+            f"parcels: no WV county code mapped for FIPS {fips} — add it to "
+            f"parcels.COUNTY_VALUE (WV internal 2-digit code, NOT the FIPS code; "
+            f"confirm via {ATTR_LAYER}'s CountyCode/CountyName pairs)")
 
     parcels = gpd.read_file(gdb, layer=GEOM_LAYER,
                             columns=[ID_FIELD, "Acres_C", COUNTY_FIELD],
@@ -82,7 +92,12 @@ def load_county_parcels(fips):
         print(f"parcels: repairing {int(invalid.sum())} invalid geometries")
         parcels.loc[invalid, "geometry"] = parcels.loc[invalid, "geometry"].apply(make_valid)
 
-    keep = ["parcel_id"] + [f for f in KEEP_FIELDS if f in parcels.columns] + ["geometry"]
+    # Canonical acreage: three source columns exist (Acres_C, CalculatedAcres,
+    # DeededAcres) and disagree >25% on ~10% of parcels. Acres_C (GIS-computed,
+    # 0 nulls) is the canonical `acres`; the others remain for reference.
+    parcels["acres"] = parcels["Acres_C"]
+
+    keep = ["parcel_id", "acres"] + [f for f in KEEP_FIELDS if f in parcels.columns] + ["geometry"]
     parcels = parcels[keep]
     print(f"parcels: {len(parcels)} parcels for {fips}")
     return parcels

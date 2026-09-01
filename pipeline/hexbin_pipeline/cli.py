@@ -8,6 +8,8 @@ def main():
     p.add_argument("--fips", required=True, help="5-digit county FIPS, e.g. 54081")
     p.add_argument("--only", help="run a single measure module (slope|flood|water|roads|transmission|mined|landcover)")
     args = p.parse_args()
+    if args.only and args.stage not in ("measure", "all"):
+        p.error(f"--only applies to the measure stage, not '{args.stage}'")
 
     # local imports so a broken module only breaks its own stage
     if args.stage in ("fetch", "all"):

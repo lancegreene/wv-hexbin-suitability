@@ -36,7 +36,13 @@ def run(fips):
     # fetched source's bbox is guaranteed to cover the buffered grid.
     boundary = county.to_crs(UTM).buffer(GRID_BUFFER_M).to_crs("EPSG:4326").iloc[0]
     gdf = cells_for_boundary(boundary)
+    # Label the buffer fringe: the app renders/aggregates county views from
+    # in_county cells only, but the fringe still feeds edge-parcel scores.
+    # Centroid test in UTM (centroids are ill-defined in geographic CRS).
+    gdf["in_county"] = gdf.to_crs(UTM).geometry.centroid.within(
+        county.to_crs(UTM).geometry.iloc[0])
     dest = grid_path(fips)
     gdf.to_parquet(dest)
-    print(f"grid: {len(gdf)} res-10 cells for {fips} -> {dest}")
+    print(f"grid: {len(gdf)} res-10 cells for {fips} "
+          f"({int(gdf.in_county.sum())} in-county, {int((~gdf.in_county).sum())} buffer fringe) -> {dest}")
     return dest

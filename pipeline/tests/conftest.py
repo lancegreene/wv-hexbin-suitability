@@ -12,7 +12,8 @@ def cells_from_h3(cell_ids):
     for c in cell_ids:
         ring = [(lng, lat) for lat, lng in h3.cell_to_boundary(c)]
         rows.append({"h3_index": c, "h3_r9": h3.cell_to_parent(c, 9),
-                     "h3_r8": h3.cell_to_parent(c, 8), "geometry": Polygon(ring)})
+                     "h3_r8": h3.cell_to_parent(c, 8), "in_county": True,
+                     "geometry": Polygon(ring)})
     return gpd.GeoDataFrame(rows, crs="EPSG:4326")
 
 

@@ -13,7 +13,7 @@ MAX_UNCOVERED_PARCEL_FRAC = 0.005
 def run(fips):
     problems = []
     grid = gpd.read_parquet(paths.grid_path(fips))
-    cells = grid[["h3_index", "h3_r9", "h3_r8"]].copy()
+    cells = grid[["h3_index", "h3_r9", "h3_r8", "in_county"]].copy()
 
     measure_files = sorted(paths.work_dir(fips).glob("measure_*.parquet"))
     if not measure_files:
@@ -32,6 +32,14 @@ def run(fips):
     missing = expected - set(cells.columns)
     if missing:
         problems.append(f"columns in criteria.json but not measured: {sorted(missing)}")
+    # Reverse direction is a warning, not a failure: measure files may carry
+    # supporting columns (confidence flags, informational stats) beyond the
+    # registry, but an unexpected one is worth eyes (e.g. a renamed criterion's
+    # orphaned parquet would otherwise slip into the published artifact)
+    known_extra = {"water_conf", "slope_pct_gt15"}
+    unexpected = set(cells.columns) - expected - {"h3_index", "h3_r9", "h3_r8", "in_county"} - known_extra
+    if unexpected:
+        print(f"validate: WARNING — measured columns not in criteria.json: {sorted(unexpected)}")
 
     for col in cells.columns.drop(["h3_index", "h3_r9", "h3_r8"]):
         frac = cells[col].isna().mean()

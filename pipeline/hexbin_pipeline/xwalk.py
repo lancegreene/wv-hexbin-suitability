@@ -24,11 +24,18 @@ def run(fips):
     dest = paths.work_dir(fips) / "parcel_cell_xwalk.parquet"
     xw.to_parquet(dest, index=False)
 
-    # Parcel attribute + geometry outputs
+    # Parcel attribute + geometry outputs. The geojson is map-rendering only
+    # (spec): id-only properties (attributes live in parcels.parquet), 2D,
+    # 6-decimal coordinates (~10 cm) — full-attribute 17-digit Z output was
+    # 44 MB vs ~16 MB, a several-second startup stall in the browser.
+    from shapely import force_2d
+
     attrs = parcels.drop(columns="geometry")
     attrs.to_parquet(paths.work_dir(fips) / "parcels.parquet", index=False)
-    simplified = parcels.to_crs(UTM)
-    simplified["geometry"] = simplified.geometry.simplify(5)
-    simplified.to_crs("EPSG:4326").to_file(paths.work_dir(fips) / "parcels.geojson", driver="GeoJSON")
+    simplified = parcels[["parcel_id", "geometry"]].to_crs(UTM)
+    simplified["geometry"] = force_2d(simplified.geometry.simplify(5))
+    simplified.to_crs("EPSG:4326").to_file(
+        paths.work_dir(fips) / "parcels.geojson", driver="GeoJSON",
+        COORDINATE_PRECISION=6)
     print(f"xwalk: wrote parcels.parquet ({len(attrs)} rows) and parcels.geojson")
     return dest

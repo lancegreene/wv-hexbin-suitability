@@ -19,6 +19,13 @@ Raleigh County (FIPS 54081). Do not re-discover these — read the section first
 - **MaxRecordCount is 1000.** Do not page the REST endpoint for bulk
   extraction — pull the county file from the WVGISTC clearinghouse.
 - County-level digital parcel files vary in availability and currency.
+- **MANUAL INPUT — the pipeline does not fetch parcels.** The statewide tax
+  parcel geodatabase (`WV_WVGISTC_Tax_2025.gdb`, from the WVGISTC
+  clearinghouse; a copy lives at `<download-dir>/WV_WVGISTC_Tax_2025.gdb.zip`)
+  must be extracted into `data/raw/parcels/` before the `xwalk` stage.
+  `parcels.py` fails with instructions if it is absent. Layer/field mapping
+  and the pyogrio where/columns quirk are documented in
+  `pipeline/hexbin_pipeline/parcels.py`'s header comment.
 
 ## Infrastructure
 

@@ -1,23 +1,29 @@
 {
+  "notes": {
+    "calibration": "Slope membership and slope_limit calibrated 2026-09-01 against measured Raleigh County (54081) terrain: median slope 34.9%, p25 20.2%. The original pre-data defaults (midpoint 8, threshold 15) masked 83.5% of cells and scored ~0 on 94% — see the run log in docs/data-sources.md.",
+    "nlcd_mode_type": "nlcd_mode is int16 in cells_r10.parquet; lookup keys here are JSON strings. Generated SQL must CAST(nlcd_mode AS VARCHAR) (or integer-coerce the keys) and MUST include an ELSE miss_score fallback — an unmatched class returning NULL would poison the whole parcel score to NULL in a weighted sum.",
+    "water_conf_values": "water_conf holds 'none', 'authoritative', or 'modeled:<method>'. Badge low-confidence when the value starts with 'modeled:'."
+  },
   "criteria": [
     {"key": "slope", "label": "Slope", "column": "slope_mean_pct", "group": "Terrain",
-     "membership": {"fn": "small", "midpoint": 8, "spread": 4}, "weight": 0.20, "confidence": "authoritative"},
+     "membership": {"fn": "small", "midpoint": 20, "spread": 3}, "weight": 0.20, "confidence": "authoritative"},
     {"key": "flood", "label": "Flood risk", "column": "flood_pct_a_ae", "group": "Environment",
      "membership": {"fn": "small", "midpoint": 15, "spread": 3}, "weight": 0.15, "confidence": "authoritative"},
     {"key": "water", "label": "Water service", "column": "water_in_service", "group": "Infrastructure",
-     "membership": {"fn": "binary"}, "weight": 0.20, "confidence": "per-feature"},
+     "membership": {"fn": "binary"}, "weight": 0.20, "confidence": "per-feature",
+     "confidence_column": "water_conf"},
     {"key": "roads", "label": "Road access", "column": "road_dist_m", "group": "Infrastructure",
      "membership": {"fn": "small", "midpoint": 1500, "spread": 3}, "weight": 0.15, "confidence": "authoritative"},
     {"key": "transmission", "label": "Transmission proximity", "column": "transmission_dist_m", "group": "Infrastructure",
      "membership": {"fn": "small", "midpoint": 3000, "spread": 3}, "weight": 0.15, "confidence": "authoritative"},
     {"key": "landcover", "label": "Land cover", "column": "nlcd_mode", "group": "Environment",
-     "membership": {"fn": "lookup", "table": {"11": 0.0, "21": 0.8, "22": 0.9, "23": 1.0, "24": 1.0,
+     "membership": {"fn": "lookup", "miss_score": 0.5, "table": {"11": 0.0, "21": 0.8, "22": 0.9, "23": 1.0, "24": 1.0,
        "31": 0.7, "41": 0.5, "42": 0.5, "43": 0.5, "52": 0.6, "71": 0.7, "81": 0.6, "82": 0.4,
        "90": 0.1, "95": 0.1}}, "weight": 0.15, "confidence": "authoritative"}
   ],
   "masks": [
     {"key": "floodway", "label": "FEMA floodway", "column": "floodway_pct", "predicate": "> 0"},
     {"key": "mined", "label": "Undermined area", "column": "mined_pct", "predicate": "> 0"},
-    {"key": "slope_limit", "label": "Steep slope", "column": "slope_mean_pct", "predicate": "> {threshold}", "default_threshold": 15}
+    {"key": "slope_limit", "label": "Steep slope", "column": "slope_mean_pct", "predicate": "> {threshold}", "default_threshold": 40}
   ]
 }

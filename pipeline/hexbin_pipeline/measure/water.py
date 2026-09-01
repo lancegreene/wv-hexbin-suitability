@@ -22,7 +22,11 @@ def run(fips):
     cents = cells.to_crs(UTM)[["h3_index", "geometry"]].copy()
     cents["geometry"] = cents.geometry.centroid
     joined = gpd.sjoin(cents, cws.to_crs(UTM)[["geometry", CONF_FIELD]],
-                       how="left", predicate="within").drop_duplicates("h3_index")
+                       how="left", predicate="within")
+    # Where authoritative and modeled service areas overlap, the authoritative
+    # label must win the tie deterministically (blank Model_Method sorts first)
+    joined = (joined.sort_values(CONF_FIELD, na_position="first")
+              .drop_duplicates("h3_index"))
     in_service = joined["index_right"].notna()
     method = joined[CONF_FIELD].fillna("").astype(str).str.strip()
     conf = pd.Series("none", index=joined.index)

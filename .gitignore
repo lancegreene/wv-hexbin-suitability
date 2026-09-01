@@ -1,2 +1,7 @@
 data/raw/
 .superpowers/
+.venv/
+data/work/
+data/processed/
+__pycache__/
+*.egg-info/

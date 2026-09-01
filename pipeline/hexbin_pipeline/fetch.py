@@ -8,17 +8,34 @@ from .paths import raw_dir
 TIMEOUT = 120
 GENERALIZE_TOLERANCE_DEG = 0.00001  # ~1 m at this latitude; only used in EPSG:4326 requests
 
-# Verified deterministic sources. Discovery-required sources are added by Task 5.
+# Verified deterministic sources.
 COUNTY_URL = "https://www2.census.gov/geo/tiger/GENZ2023/shp/cb_2023_us_county_500k.zip"
 ROADS_URL = "https://www2.census.gov/geo/tiger/TIGER2024/ROADS/tl_2024_{fips}_roads.zip"
 DEM_URL = "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/current/{t}/USGS_13_{t}.tif"
 NFHL_LAYER = "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28"
 
-# Filled in by Task 5 endpoint discovery:
-WATER_LAYER = None         # EPA Community Water System service area boundaries (polygons)
-TRANSMISSION_LAYER = None  # EIA Energy Atlas transmission lines
-MINED_LAYER = None         # WVDEP TAGIS / WVGES underground mining polygons
-NLCD_WCS = None            # MRLC NLCD land cover coverage endpoint
+# Resolved by Task 5 endpoint discovery (2026-09-01). Provenance, verified
+# feature counts and field-level caveats are in docs/data-sources.md.
+WATER_LAYER = ("https://services.arcgis.com/cJ9YHowT8TU7DUyn/arcgis/rest/services/"
+               "Water_System_Boundaries/FeatureServer/0")
+TRANSMISSION_LAYER = ("https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services/"
+                      "US_Electric_Power_Transmission_Lines/FeatureServer/0")
+MINED_LAYER = ("https://tagis.dep.wv.gov/arcgis/rest/services/WVDEP_enterprise/"
+               "mining_reclamation/MapServer/10")  # "underground mining limits" polygons
+# Despite the name this is an Esri ImageServer (exportImage), not an OGC WCS —
+# MRLC publishes Annual NLCD through geoserver WMS and this ImageServer, and only
+# the ImageServer returns a clipped thematic GeoTIFF in one request.
+NLCD_WCS = ("https://di-nlcd.img.arcgis.com/arcgis/rest/services/"
+            "USA_NLCD_Annual_LandCover/ImageServer")
+
+NLCD_YEAR = 2024      # latest slice in the 1985-2024 annual mosaic
+NLCD_RES_M = 30       # native NLCD cell size; requesting anything else resamples classes
+NLCD_SR = 5070        # NAD83 / Conus Albers — NLCD's native projection, square metre pixels
+NLCD_MAX_PX = 20000   # service maxImageWidth/maxImageHeight
+# NLCD legend codes (0 = outside-CONUS nodata). Anything else means the service
+# handed back a rendered RGB image rather than the thematic raster.
+NLCD_CLASSES = {11, 12, 21, 22, 23, 24, 31, 41, 42, 43, 51, 52,
+                71, 72, 73, 74, 81, 82, 90, 95}
 
 
 def download_file(url, dest):
@@ -57,8 +74,10 @@ def fetch_arcgis_layer(layer_url, dest, where="1=1", bbox_4326=None, chunk=200):
 
     Chunked-by-id (not resultOffset paging) because some servers (FEMA NFHL)
     crash outright — HTTP 500 or connection reset — when a response page
-    includes certain very large polygons. Failing chunks are bisected to
-    isolate poison features; a single poison feature is retried with light
+    includes certain very large polygons. Every failing chunk is retried once
+    before anything else, so a transient network blip costs one retry instead
+    of a full bisection; only a chunk that fails twice is bisected to isolate
+    poison features. A single poison feature is then retried with light
     server-side generalization before giving up loudly.
     """
     if dest.exists() and dest.stat().st_size > 0:
@@ -132,13 +151,24 @@ def dem_tiles(bounds):
                    for lon in range(math.floor(minx), math.ceil(maxx))})
 
 
-def county_bounds(fips):
+def load_county(fips):
+    """Single-row GeoDataFrame for the county, from the cached TIGER boundary file.
+
+    Shared by the fetch and grid stages so the two cannot disagree about which
+    row is "the county" or report a missing GEOID differently.
+    """
     import geopandas as gpd  # local: keeps the network helpers importable without the geo stack
-    counties = gpd.read_file(raw_dir("county") / "counties.zip")
+    path = raw_dir("county") / "counties.zip"
+    counties = gpd.read_file(path)
     county = counties[counties["GEOID"] == fips]
     if len(county) != 1:
-        raise RuntimeError(f"county GEOID={fips} not found in boundary file")
-    return tuple(county.total_bounds)  # (minx, miny, maxx, maxy)
+        raise RuntimeError(f"expected exactly 1 county with GEOID={fips}, found {len(county)} "
+                           f"in {path}")
+    return county
+
+
+def county_bounds(fips):
+    return tuple(load_county(fips).total_bounds)  # (minx, miny, maxx, maxy)
 
 
 def run(fips):
@@ -166,10 +196,80 @@ def run(fips):
 
 
 def fetch_nlcd(fips, bounds):
-    """Clipped NLCD land cover GeoTIFF for the county bbox. NLCD_WCS set by Task 5."""
+    """Clipped NLCD annual land cover GeoTIFF for the county bbox.
+
+    Requested in EPSG:5070 rather than 4326 so pixels stay square 30 m cells on
+    NLCD's own grid; a 4326 request would return degree-sized pixels and force
+    the server to resample categorical class codes.
+
+    The mosaic holds one raster per year 1985-2024, so the request pins
+    NLCD_YEAR through a mosaicRule. Without it the server picks its own default
+    slice and the land-cover vintage could change between runs without warning.
+    """
     dest = raw_dir("nlcd") / f"nlcd_{fips}.tif"
     if dest.exists() and dest.stat().st_size > 0:
         print(f"fetch: {dest.name} already present, skipping")
         return dest
-    raise RuntimeError("fetch_nlcd: implemented during endpoint discovery (plan Task 5) — "
-                       "the request format depends on which MRLC endpoint is live")
+
+    import numpy as np
+    import rasterio
+    from pyproj import Transformer
+
+    tf = Transformer.from_crs("EPSG:4326", f"EPSG:{NLCD_SR}", always_xy=True)
+    corners = [tf.transform(x, y) for x in (bounds[0], bounds[2]) for y in (bounds[1], bounds[3])]
+    xs = [c[0] for c in corners]
+    ys = [c[1] for c in corners]
+    # Snap outward onto the 30 m grid so returned pixels align with native NLCD cells
+    minx = math.floor(min(xs) / NLCD_RES_M) * NLCD_RES_M
+    miny = math.floor(min(ys) / NLCD_RES_M) * NLCD_RES_M
+    maxx = math.ceil(max(xs) / NLCD_RES_M) * NLCD_RES_M
+    maxy = math.ceil(max(ys) / NLCD_RES_M) * NLCD_RES_M
+    width = int((maxx - minx) / NLCD_RES_M)
+    height = int((maxy - miny) / NLCD_RES_M)
+    if width > NLCD_MAX_PX or height > NLCD_MAX_PX:
+        raise RuntimeError(f"fetch: NLCD request {width}x{height} px exceeds the service limit of "
+                           f"{NLCD_MAX_PX} px per side — this county needs a tiled request; "
+                           f"do not lower the resolution, that would resample class codes")
+
+    print(f"fetch: nlcd {NLCD_YEAR}: requesting {width}x{height} px @ {NLCD_RES_M} m "
+          f"(EPSG:{NLCD_SR}) from {NLCD_WCS}")
+    params = {"bbox": f"{minx},{miny},{maxx},{maxy}", "bboxSR": NLCD_SR, "imageSR": NLCD_SR,
+              "size": f"{width},{height}", "format": "tiff", "pixelType": "U8", "f": "image",
+              "interpolation": "RSP_NearestNeighbor",  # categorical: never average class codes
+              "mosaicRule": json.dumps({"where": f"Year={NLCD_YEAR}"})}
+    r = requests.get(f"{NLCD_WCS}/exportImage", params=params, timeout=TIMEOUT)
+    r.raise_for_status()
+    ctype = r.headers.get("Content-Type", "")
+    if "image" not in ctype:
+        # exportImage reports failures as an HTTP 200 JSON body, so a bad request
+        # would otherwise be written straight to disk as a "valid" .tif
+        raise RuntimeError(f"fetch: NLCD exportImage returned {ctype!r}, not an image: "
+                           f"{r.text[:300]} — check the endpoint (see docs/data-sources.md)")
+
+    tmp = dest.with_suffix(dest.suffix + ".part")
+    tmp.write_bytes(r.content)
+    # Verify before publishing: a rendered RGB image or an all-nodata window would
+    # silently poison every land-cover measurement downstream
+    with rasterio.open(tmp) as ds:
+        res, crs, shape = ds.res, ds.crs, (ds.width, ds.height)
+        band = ds.read(1)
+    if res != (NLCD_RES_M, NLCD_RES_M):
+        tmp.unlink()
+        raise RuntimeError(f"fetch: NLCD raster came back at {res} m, expected "
+                           f"{NLCD_RES_M} m — the service resampled; zonal stats would be wrong")
+    values = {int(v) for v in np.unique(band)}
+    unexpected = values - NLCD_CLASSES - {0}
+    if unexpected:
+        tmp.unlink()
+        raise RuntimeError(f"fetch: NLCD raster holds non-legend values {sorted(unexpected)[:10]} "
+                           f"— the service likely returned a rendered image instead of class "
+                           f"codes (see docs/data-sources.md)")
+    classified = float((band != 0).sum()) / band.size
+    if classified < 0.5:
+        tmp.unlink()
+        raise RuntimeError(f"fetch: NLCD raster is only {classified:.1%} classified — the request "
+                           f"window is mostly nodata, so the bbox or CRS is wrong")
+    tmp.replace(dest)
+    print(f"fetch: wrote {dest} ({dest.stat().st_size:,} bytes) — {shape[0]}x{shape[1]} px, "
+          f"{crs}, {classified:.1%} classified, classes {sorted(values - {0})}")
+    return dest

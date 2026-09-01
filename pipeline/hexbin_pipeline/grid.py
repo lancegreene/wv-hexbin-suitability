@@ -2,7 +2,8 @@ import geopandas as gpd
 import h3
 from shapely.geometry import Polygon
 
-from .paths import grid_path, raw_dir
+from .fetch import load_county
+from .paths import grid_path
 
 UTM = "EPSG:26917"
 
@@ -29,11 +30,7 @@ def cells_for_boundary(boundary_4326):
 
 
 def run(fips):
-    counties = gpd.read_file(raw_dir("county") / "counties.zip")
-    county = counties[counties["GEOID"] == fips]
-    if len(county) != 1:
-        raise RuntimeError(f"expected exactly 1 county with GEOID={fips}, found {len(county)} "
-                           f"in {raw_dir('county') / 'counties.zip'}")
+    county = load_county(fips)
     # Buffer 500 m so edge parcels still get full cell coverage (boundary file is generalized)
     boundary = county.to_crs(UTM).buffer(500).to_crs("EPSG:4326").iloc[0]
     gdf = cells_for_boundary(boundary)

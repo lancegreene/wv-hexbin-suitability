@@ -60,8 +60,12 @@ Raleigh County (FIPS 54081). Do not re-discover these — read the section first
 - https://atlas.eia.gov/ — 69 kV to 765 kV, AC and DC.
 - **RESOLVED 2026-09-01 — layer 0, polylines:**
   `https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services/US_Electric_Power_Transmission_Lines/FeatureServer/0`
-- Verified: **82 features** for the 54081 bbox, all `OWNER='APPALACHIAN POWER CO'`,
-  `STATUS='IN SERVICE'`, voltages 46/69/138 kV.
+- Verified: **82 features** for the 54081 bbox, all `OWNER='APPALACHIAN POWER CO'`.
+  `STATUS`: 81 `IN SERVICE`, 1 `NOT AVAILABLE`. `VOLTAGE`: mostly 46/69/138 kV,
+  plus one 345 kV and one 765 kV row, and **17 rows with the `-999999` null
+  sentinel** — filter it before any numeric use. `VOLT_CLASS` is populated even
+  on sentinel rows (values seen: `UNDER 100`, `100-161`, `345`, `735 AND ABOVE`)
+  — prefer it for binning.
 - **Caveat — the layer is archived, not dead.** Item title is
   "U.S. Electric Power Transmission Lines (Archive)"; the description says
   "It will no longer be updated or maintained", data currency **09/30/2024**.
@@ -152,7 +156,10 @@ functional class; an unimproved road is not site access.
   - Fields: `permit_id`, `mapdate`, `maptype`, `facility_name`, `operator`,
     `permittee`, `update_date`, `permit_seam`, `wvges_seam`, `comments`.
   - `permit_id` prefix is the permit type. Raleigh mix: **U** (underground) 105,
-    **S** (surface) 64, **E** 4, **D** 2, **O** (haul road) 1, **Q** (quarry) 1.
+    **S** (surface) 64, **E** 4, **D** 2, **O** (haul road) 1, **Q** (quarry) 1,
+    plus **2 rows with fully-null attributes** (`permit_id`, `facility_name`,
+    `maptype`, `operator` all null) — geometry only. A `LIKE 'U%'` filter drops
+    them; decide whether that is acceptable when the filter is written.
     The S-prefix rows are real entries in this layer — mined-out area is
     attributed to whichever permit authorised the extraction, and seam values
     like `HMinli_*` (highwall miner) / `SMinli_*` sit under surface permits.
@@ -163,6 +170,7 @@ functional class; an unimproved road is not site access.
     mining method. Coded domain `dmr_maptype`: `pr` proposal, `pd` proposal
     drainage, `rp` renewal progress, `fi` final, `is` inactive status,
     `sc` subsidence control plan, `dr` drainage, `ge` geologic, `ot` other,
-    `na` not assigned, `aj` adjacent permit. Raleigh also contains an
-    undocumented `ep` code (78 rows) not in the published domain.
+    `na` not assigned, `aj` adjacent permit. Raleigh also contains values
+    outside the published domain: `ep` (78), `' '` single space (8), null (10),
+    `dw` (1), `S5` (1), and uppercase `EP` (1, distinct from `ep`).
   - Some polygons fail `is_valid`; repair before overlay.

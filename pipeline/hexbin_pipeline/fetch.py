@@ -257,6 +257,10 @@ def fetch_nlcd(fips, bounds):
         tmp.unlink()
         raise RuntimeError(f"fetch: NLCD raster came back at {res} m, expected "
                            f"{NLCD_RES_M} m — the service resampled; zonal stats would be wrong")
+    if crs is None or crs.to_epsg() != NLCD_SR:
+        tmp.unlink()
+        raise RuntimeError(f"fetch: NLCD raster CRS is {crs}, expected EPSG:{NLCD_SR} — "
+                           f"the service ignored imageSR; the bbox would be misplaced")
     values = {int(v) for v in np.unique(band)}
     unexpected = values - NLCD_CLASSES - {0}
     if unexpected:

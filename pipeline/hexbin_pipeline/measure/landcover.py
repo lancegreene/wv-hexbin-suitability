@@ -9,7 +9,7 @@ def run(fips):
     cells = gpd.read_parquet(paths.grid_path(fips))
     tif = paths.raw_dir("nlcd") / f"nlcd_{fips}.tif"
     if not tif.exists():
-        raise RuntimeError("landcover: missing NLCD raster — run the fetch stage")
+        raise RuntimeError(f"landcover: missing NLCD raster {tif} — run the fetch stage")
     mode = zonal_majority(cells, tif)
     out = pd.DataFrame({
         "h3_index": cells["h3_index"],

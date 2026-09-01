@@ -22,6 +22,9 @@ def cells_for_boundary(boundary_4326):
     cell_ids = h3.h3shape_to_cells(shape, 10)
     if not cell_ids:
         raise RuntimeError("H3 polyfill returned 0 cells — boundary geometry or CRS is wrong")
+    if len(cell_ids) != len(set(cell_ids)):
+        raise RuntimeError("H3 polyfill returned duplicate cells — boundary polygon is "
+                           "likely invalid (self-intersecting or overlapping parts)")
     return cells_to_gdf(cell_ids)
 
 

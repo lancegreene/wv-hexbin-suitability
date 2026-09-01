@@ -108,7 +108,9 @@ def fetch_arcgis_layer(layer_url, dest, where="1=1", bbox_4326=None, chunk=200):
     if len(features) != len(ids):
         raise RuntimeError(f"fetch: {dest.name}: retrieved {len(features)} features but server "
                            f"listed {len(ids)} ids — partial download, not writing output")
-    dest.write_text(json.dumps({"type": "FeatureCollection", "features": features}))
+    tmp = dest.with_suffix(dest.suffix + ".part")
+    tmp.write_text(json.dumps({"type": "FeatureCollection", "features": features}))
+    tmp.replace(dest)
     print(f"fetch: wrote {len(features)} features -> {dest}")
     return dest
 

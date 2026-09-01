@@ -6,6 +6,7 @@ import requests
 from .paths import raw_dir
 
 TIMEOUT = 120
+GENERALIZE_TOLERANCE_DEG = 0.00001  # ~1 m at this latitude; only used in EPSG:4326 requests
 
 # Verified deterministic sources. Discovery-required sources are added by Task 5.
 COUNTY_URL = "https://www2.census.gov/geo/tiger/GENZ2023/shp/cb_2023_us_county_500k.zip"
@@ -29,13 +30,13 @@ def download_file(url, dest):
     r.raise_for_status()
     tmp = dest.with_suffix(dest.suffix + ".part")
     with open(tmp, "wb") as f:
-        for chunk in r.iter_content(1 << 20):
-            f.write(chunk)
+        for block in r.iter_content(1 << 20):
+            f.write(block)
     if tmp.stat().st_size == 0:
         tmp.unlink()
         raise RuntimeError(f"fetch: {url} returned an empty file — check the endpoint "
                            f"(see docs/data-sources.md)")
-    tmp.rename(dest)
+    tmp.replace(dest)  # replace, not rename: a stale zero-byte dest must not crash the retry
     print(f"fetch: wrote {dest} ({dest.stat().st_size:,} bytes)")
     return dest
 
@@ -46,7 +47,8 @@ def _query(layer_url, params):
     r.raise_for_status()
     page = r.json()
     if "error" in page:
-        raise RuntimeError(f"fetch: {layer_url} error: {page['error']} — check the endpoint")
+        raise RuntimeError(f"fetch: {layer_url} error: {page['error']} — check the endpoint "
+                           f"(see docs/data-sources.md)")
     return page
 
 
@@ -76,25 +78,32 @@ def fetch_arcgis_layer(layer_url, dest, where="1=1", bbox_4326=None, chunk=200):
 
     features = []
 
-    def fetch_ids(id_batch, tolerance=None):
+    def fetch_ids(id_batch, tolerance=None, retried=False):
         params = {"objectIds": ",".join(str(i) for i in id_batch), "outFields": "*",
                   "outSR": 4326, "f": "geojson"}
         if tolerance is not None:
             params["maxAllowableOffset"] = tolerance
         try:
             page = _query(layer_url, params)
-        except requests.exceptions.RequestException as exc:
+        # RuntimeError included: servers can report the same poison-feature
+        # failure in-band ({"error": ...} with HTTP 200) instead of dropping
+        # the connection, and it must trigger the same bisection path
+        except (requests.exceptions.RequestException, RuntimeError) as exc:
+            if not retried:
+                fetch_ids(id_batch, tolerance, retried=True)  # absorb transient blips
+                return
             if len(id_batch) > 1:
                 mid = len(id_batch) // 2
+                print(f"fetch: {dest.name}: batch of {len(id_batch)} failed twice, bisecting")
                 fetch_ids(id_batch[:mid], tolerance)
                 fetch_ids(id_batch[mid:], tolerance)
                 return
             if tolerance is None:
-                # One poison feature: retry once with ~1 m generalization,
+                # One poison feature: retry with ~1 m generalization,
                 # negligible at res-10 cell scale (~120 m across)
                 print(f"fetch: {dest.name}: objectid {id_batch[0]} failed raw, "
                       f"retrying generalized")
-                fetch_ids(id_batch, tolerance=0.00001)
+                fetch_ids(id_batch, tolerance=GENERALIZE_TOLERANCE_DEG)
                 return
             raise RuntimeError(f"fetch: {layer_url} objectid {id_batch[0]} unfetchable "
                                f"even generalized ({exc}) — investigate before proceeding; "
@@ -124,7 +133,7 @@ def dem_tiles(bounds):
 
 
 def county_bounds(fips):
-    import geopandas as gpd
+    import geopandas as gpd  # local: keeps the network helpers importable without the geo stack
     counties = gpd.read_file(raw_dir("county") / "counties.zip")
     county = counties[counties["GEOID"] == fips]
     if len(county) != 1:

@@ -21,7 +21,9 @@ WATER_LAYER = ("https://services.arcgis.com/cJ9YHowT8TU7DUyn/arcgis/rest/service
 TRANSMISSION_LAYER = ("https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services/"
                       "US_Electric_Power_Transmission_Lines/FeatureServer/0")
 MINED_LAYER = ("https://tagis.dep.wv.gov/arcgis/rest/services/WVDEP_enterprise/"
-               "mining_reclamation/MapServer/10")  # "underground mining limits" polygons
+               "mining_reclamation/MapServer/10")
+# ^ layer's own title is "underground mining limits" but it is NOT underground-only
+#   (mixes U/S/E/D/O/Q permits) — see the permit_id caveat in docs/data-sources.md
 # Despite the name this is an Esri ImageServer (exportImage), not an OGC WCS —
 # MRLC publishes Annual NLCD through geoserver WMS and this ImageServer, and only
 # the ImageServer returns a clipped thematic GeoTIFF in one request.
@@ -216,14 +218,14 @@ def fetch_nlcd(fips, bounds):
     from pyproj import Transformer
 
     tf = Transformer.from_crs("EPSG:4326", f"EPSG:{NLCD_SR}", always_xy=True)
-    corners = [tf.transform(x, y) for x in (bounds[0], bounds[2]) for y in (bounds[1], bounds[3])]
-    xs = [c[0] for c in corners]
-    ys = [c[1] for c in corners]
+    # transform_bounds densifies edges — corner-only transforms under-cover
+    # curved bbox edges in conic projections for large/elongated counties
+    bminx, bminy, bmaxx, bmaxy = tf.transform_bounds(*bounds)
     # Snap outward onto the 30 m grid so returned pixels align with native NLCD cells
-    minx = math.floor(min(xs) / NLCD_RES_M) * NLCD_RES_M
-    miny = math.floor(min(ys) / NLCD_RES_M) * NLCD_RES_M
-    maxx = math.ceil(max(xs) / NLCD_RES_M) * NLCD_RES_M
-    maxy = math.ceil(max(ys) / NLCD_RES_M) * NLCD_RES_M
+    minx = math.floor(bminx / NLCD_RES_M) * NLCD_RES_M
+    miny = math.floor(bminy / NLCD_RES_M) * NLCD_RES_M
+    maxx = math.ceil(bmaxx / NLCD_RES_M) * NLCD_RES_M
+    maxy = math.ceil(bmaxy / NLCD_RES_M) * NLCD_RES_M
     width = int((maxx - minx) / NLCD_RES_M)
     height = int((maxy - miny) / NLCD_RES_M)
     if width > NLCD_MAX_PX or height > NLCD_MAX_PX:
@@ -250,10 +252,15 @@ def fetch_nlcd(fips, bounds):
     tmp.write_bytes(r.content)
     # Verify before publishing: a rendered RGB image or an all-nodata window would
     # silently poison every land-cover measurement downstream
-    with rasterio.open(tmp) as ds:
-        res, crs, shape = ds.res, ds.crs, (ds.width, ds.height)
-        band = ds.read(1)
-    if res != (NLCD_RES_M, NLCD_RES_M):
+    try:
+        with rasterio.open(tmp) as ds:
+            res, crs, shape = ds.res, ds.crs, (ds.width, ds.height)
+            band = ds.read(1)
+    except rasterio.errors.RasterioIOError as exc:
+        tmp.unlink()
+        raise RuntimeError(f"fetch: NLCD response is not a readable GeoTIFF ({exc}) — "
+                           f"likely truncated; re-run the fetch stage") from exc
+    if abs(res[0] - NLCD_RES_M) > 0.01 or abs(res[1] - NLCD_RES_M) > 0.01:
         tmp.unlink()
         raise RuntimeError(f"fetch: NLCD raster came back at {res} m, expected "
                            f"{NLCD_RES_M} m — the service resampled; zonal stats would be wrong")

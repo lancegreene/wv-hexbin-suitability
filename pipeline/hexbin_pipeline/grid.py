@@ -2,7 +2,7 @@ import geopandas as gpd
 import h3
 from shapely.geometry import Polygon
 
-from .fetch import load_county
+from .fetch import GRID_BUFFER_M, load_county
 from .paths import grid_path
 
 UTM = "EPSG:26917"
@@ -31,8 +31,10 @@ def cells_for_boundary(boundary_4326):
 
 def run(fips):
     county = load_county(fips)
-    # Buffer 500 m so edge parcels still get full cell coverage (boundary file is generalized)
-    boundary = county.to_crs(UTM).buffer(500).to_crs("EPSG:4326").iloc[0]
+    # Buffer so edge parcels still get full cell coverage (boundary file is
+    # generalized). GRID_BUFFER_M is shared with fetch.county_bounds so every
+    # fetched source's bbox is guaranteed to cover the buffered grid.
+    boundary = county.to_crs(UTM).buffer(GRID_BUFFER_M).to_crs("EPSG:4326").iloc[0]
     gdf = cells_for_boundary(boundary)
     dest = grid_path(fips)
     gdf.to_parquet(dest)

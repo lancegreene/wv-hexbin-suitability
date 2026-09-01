@@ -7,6 +7,7 @@ from .paths import raw_dir
 
 TIMEOUT = 120
 GENERALIZE_TOLERANCE_DEG = 0.00001  # ~1 m at this latitude; only used in EPSG:4326 requests
+GRID_BUFFER_M = 500  # county-boundary buffer; shared with grid.run — see county_bounds
 
 # Verified deterministic sources.
 COUNTY_URL = "https://www2.census.gov/geo/tiger/GENZ2023/shp/cb_2023_us_county_500k.zip"
@@ -170,7 +171,17 @@ def load_county(fips):
 
 
 def county_bounds(fips):
-    return tuple(load_county(fips).total_bounds)  # (minx, miny, maxx, maxy)
+    """Bbox of the GRID_BUFFER_M-buffered county in EPSG:4326.
+
+    The grid stage polyfills the same buffered boundary, so deriving every
+    source's fetch bbox from these bounds guarantees coverage of every grid
+    cell. Raw (unbuffered) county bounds do NOT guarantee that: for a county
+    whose boundary runs close to its own bbox edge, buffered edge cells would
+    silently fall outside a raster clipped to the raw bounds.
+    """
+    county = load_county(fips)
+    buffered = county.to_crs("EPSG:26917").buffer(GRID_BUFFER_M).to_crs("EPSG:4326")
+    return tuple(buffered.total_bounds)  # (minx, miny, maxx, maxy)
 
 
 def run(fips):

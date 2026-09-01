@@ -19,6 +19,37 @@ def test_pct_overlap_empty_polys_returns_zeros(seven_cells):
     empty = gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
     pct = pct_overlap(seven_cells, empty)
     assert (pct == 0).all()
+    assert len(pct) == len(seven_cells)
+
+
+def test_pct_overlap_no_double_counting(seven_cells):
+    # Two identical polygons covering cell 0: without the dissolve step the
+    # cell would measure ~200%
+    footprint = seven_cells.geometry.iloc[0]
+    polys = gpd.GeoDataFrame(geometry=[footprint, footprint], crs="EPSG:4326")
+    pct = pct_overlap(seven_cells, polys)
+    assert pct.max() == pytest.approx(100, abs=1)
+    assert (pct <= 100.5).all()
+
+
+def test_pct_overlap_result_order_matches_cells(seven_cells):
+    # Callers consume `.values` positionally — the returned index must align
+    # with the cells argument's row order, including a shuffled one
+    shuffled = seven_cells.sample(frac=1, random_state=7).reset_index(drop=True)
+    polys = gpd.GeoDataFrame(geometry=[shuffled.geometry.iloc[3]], crs="EPSG:4326")
+    pct = pct_overlap(shuffled, polys)
+    assert pct.index.tolist() == shuffled["h3_index"].tolist()
+    assert pct.iloc[3] == pytest.approx(100, abs=1)
+
+
+def test_dist_to_nearest_result_order_matches_cells(seven_cells):
+    from shapely.geometry import Point
+    shuffled = seven_cells.sample(frac=1, random_state=11).reset_index(drop=True)
+    cent = shuffled.iloc[[2]].to_crs(UTM).geometry.centroid.iloc[0]
+    pts = gpd.GeoDataFrame(geometry=[Point(cent.x, cent.y)], crs=UTM).to_crs("EPSG:4326")
+    dist = dist_to_nearest(shuffled, pts)
+    assert dist.index.tolist() == shuffled["h3_index"].tolist()
+    assert dist.iloc[2] == pytest.approx(0, abs=5)
 
 
 def test_pct_overlap_repairs_invalid_polygons(seven_cells, capsys):

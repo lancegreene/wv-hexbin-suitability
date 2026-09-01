@@ -12,8 +12,10 @@ def pct_overlap(cells, polys):
     GeoDataFrame. Returns Series indexed by h3_index, aligned to cells order.
     Empty polys -> zeros (caller decides whether empty input is legitimate).
     Invalid source polygons (real occurrence in the EPA water and TAGIS mined
-    layers) are repaired with make_valid — gpd.overlay would silently drop
-    them otherwise.
+    layers) are repaired with make_valid BEFORE dissolve: dissolve's
+    unary-union does not fix invalid inputs — it can yield a still-invalid,
+    zero-area geometry — and gpd.overlay's own make_valid default cannot undo
+    damage dissolve has already done.
     """
     order = cells["h3_index"]
     if polys.empty:
@@ -25,7 +27,10 @@ def pct_overlap(cells, polys):
     if invalid.any():
         print(f"pct_overlap: repairing {int(invalid.sum())} invalid polygon(s)")
         polys_m.loc[invalid, "geometry"] = polys_m.loc[invalid, "geometry"].apply(make_valid)
-    polys_m = polys_m.dissolve()  # dissolve: no double-counting overlaps
+    # dissolve: no double-counting of overlapping sources; explode back to
+    # single-part rows so overlay's spatial index can prune (a single
+    # dissolved multipolygon row defeats it — measured 20-40x slower)
+    polys_m = polys_m.dissolve().explode(index_parts=False)
     inter = gpd.overlay(cells_m, polys_m, how="intersection", keep_geom_type=True)
     cell_area = cells_m.set_index("h3_index").area
     covered = inter.assign(a=inter.area).groupby("h3_index")["a"].sum()

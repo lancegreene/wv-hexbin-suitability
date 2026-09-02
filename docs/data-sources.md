@@ -205,3 +205,9 @@ published to `data/processed/54081/`.
 Re-score latency ~1.4-1.6 s (60,683 parcels + hex agg per change); parcel-choropleth first paint ~30 s (19 MB GeoJSON parse).
 **2026-09-02 — UI polish: Esri basemaps, county outline artifact, map chrome.**
 **2026-09-02 — Phase A classed scoring: per-criterion class tiers, settings drawer, presets.**
+**2026-09-02 — Phase B drive time (`hwy_drive_min`).** TIGER EDGES (not the
+ROADS feature product — see the commit message on the swap) across 7
+counties: 129,308 road edges, 115,983 nodes, 524 highway access points,
+99.0% of nodes reachable, median 12.6 min / max 72.0 min, 0 null cells
+(nearest-reachable-node mapping, 5 km max access leg). Replaces the
+straight-line roads criterion; `road_dist_m` still measured/published.

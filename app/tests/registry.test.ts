@@ -14,7 +14,7 @@ describe('registry', () => {
     expect(() =>
       loadRegistry({
         criteria: [{ key: 'x', label: 'x', column: 'c', group: 'g', weight: 1,
-          confidence: 'authoritative', membership: { fn: 'lookup', table: {} } as never }],
+          confidence: 'authoritative', unit: 'pct', membership: { fn: 'lookup', table: {} } as never }],
         masks: [],
       }),
     ).toThrow(/miss_score/);
@@ -24,7 +24,7 @@ describe('registry', () => {
     expect(() =>
       loadRegistry({
         criteria: [{ key: 'x', label: 'x', column: 'c', group: 'g', weight: 1,
-          confidence: 'authoritative', membership: { fn: 'binary' } }],
+          confidence: 'authoritative', unit: 'pct', membership: { fn: 'binary' } }],
         masks: [{ key: 'm', label: 'm', column: 'c' }],
       }),
     ).toThrow(/incomplete/);

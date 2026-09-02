@@ -12,7 +12,18 @@ export interface Criterion {
   weight: number;
   confidence: string;
   confidence_column?: string;
+  unit: 'pct_slope' | 'pct' | 'meters' | 'binary' | 'category';
 }
+
+export interface Step {
+  max?: number;  // inclusive upper bound in the column's stored unit; absent = catch-all (must be last)
+  score: number; // 0-1
+  label: string; // plain-English class meaning, surfaces in tooltip/table/CSV
+}
+
+export type NormalizationOverride =
+  | { mode: 'curve' }
+  | { mode: 'steps'; steps: Step[] };
 
 export interface Mask {
   key: string;
@@ -37,4 +48,5 @@ export interface ScoringConfig {
   displayMode: 'hex' | 'parcel';
   basemap: 'none' | 'streets' | 'imagery'; // external Esri tiles; 'none' keeps the app offline
   scoreOpacity: number;                    // 0-1 alpha multiplier on the score layers
+  normalization: Record<string, NormalizationOverride>;
 }

@@ -11,6 +11,9 @@ export function loadRegistry(raw?: unknown): Registry {
     if (!c.key || !c.column || !c.membership) {
       throw new Error(`criteria.json: criterion ${JSON.stringify(c.key)} is incomplete`);
     }
+    if (!c.unit) {
+      throw new Error(`criteria.json: criterion '${c.key}' is missing 'unit'`);
+    }
     if (c.membership.fn === 'lookup' && typeof c.membership.miss_score !== 'number') {
       throw new Error(`criteria.json: lookup criterion '${c.key}' needs miss_score — ` +
         `an unmatched class must score, not go NULL`);
@@ -37,5 +40,6 @@ export function defaultConfig(reg: Registry): ScoringConfig {
     displayMode: 'hex',
     basemap: 'none',
     scoreOpacity: 0.8,
+    normalization: {},
   };
 }

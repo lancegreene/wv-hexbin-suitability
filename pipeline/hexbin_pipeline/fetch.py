@@ -12,6 +12,11 @@ GRID_BUFFER_M = 500  # county-boundary buffer; shared with grid.run — see coun
 # Verified deterministic sources.
 COUNTY_URL = "https://www2.census.gov/geo/tiger/GENZ2023/shp/cb_2023_us_county_500k.zip"
 ROADS_URL = "https://www2.census.gov/geo/tiger/TIGER2024/ROADS/tl_2024_{fips}_roads.zip"
+# EDGES are the topological primitives (split at every node) — required for the
+# drive-time graph. The ROADS product is whole-road FEATURES spanning many
+# intersections; only ~21% of its endpoints are shared, so a graph built from
+# it shatters (measured: 98% of cells unreachable).
+EDGES_URL = "https://www2.census.gov/geo/tiger/TIGER2024/EDGES/tl_2024_{fips}_edges.zip"
 DEM_URL = "https://prd-tnm.s3.amazonaws.com/StagedProducts/Elevation/13/TIFF/current/{t}/USGS_13_{t}.tif"
 NFHL_LAYER = "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28"
 
@@ -212,6 +217,8 @@ def run(fips):
     print(f"fetch: {len(neighbors)} adjacent counties for the road network: {neighbors}")
     for n in neighbors:
         download_file(ROADS_URL.format(fips=n), raw_dir("roads") / f"roads_{n}.zip")
+    for f in [fips] + neighbors:
+        download_file(EDGES_URL.format(fips=f), raw_dir("edges") / f"edges_{f}.zip")
 
     for t in dem_tiles(bounds):
         download_file(DEM_URL.format(t=t), raw_dir("dem") / f"USGS_13_{t}.tif")

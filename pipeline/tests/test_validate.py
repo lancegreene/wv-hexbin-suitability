@@ -14,7 +14,7 @@ def staged(seven_cells, tmp_path, monkeypatch):
     full = pd.DataFrame({
         "h3_index": idx, "slope_mean_pct": 12.0, "slope_pct_gt15": 30.0,
         "flood_pct_a_ae": 0.0, "floodway_pct": 0.0, "water_in_service": 1,
-        "water_conf": "authoritative", "road_dist_m": 500.0,
+        "water_conf": "authoritative", "road_dist_m": 500.0, "hwy_drive_min": 8.0,
         "transmission_dist_m": 2000.0, "mined_pct": 0.0, "nlcd_mode": 41,
     })
     full.to_parquet(paths.work_dir(fips) / "measure_all.parquet", index=False)

@@ -7,27 +7,34 @@ import type { ScoringConfig } from '../src/types';
 const reg = loadRegistry();
 
 // Fixture: 3 cells, 2 parcels. Hand-computed below with the calibrated registry
-// (slope small(20,3), flood small(15,3), water binary, roads small(1500,3),
-// transmission small(3000,3), landcover lookup, default weights .2/.15/.2/.15/.15/.15).
+// (slope small(20,3), flood small(15,3), water binary, hwy_access steps default
+// (<=10 min -> 1.0, else -> 0.0), transmission small(3000,3), landcover lookup,
+// default weights .2/.15/.2/.15/.15/.15).
 //
-// cell A: slope 20 (m=0.5), flood 0 (m=1), water 1 (m=1), road 1500 (m=0.5),
-//         transmission 3000 (m=0.5), nlcd 23 (m=1.0); no masks trip.
-//         WLC = .2*.5 + .15*1 + .2*1 + .15*.5 + .15*.5 + .15*1 = 0.75
+// cell A: slope 20 (m=0.5), flood 0 (m=1), water 1 (m=1), hwy_drive_min 10.0
+//         (m=1.0 — exactly at the <=10 min bound, proving inclusivity via the
+//         registry default), transmission 3000 (m=0.5), nlcd 23 (m=1.0); no
+//         masks trip. road_dist_m (1500) is retained as measured data but no
+//         longer scored — the roads criterion was replaced by hwy_access.
+//         WLC = .2*.5 + .15*1 + .2*1 + .15*1.0 + .15*.5 + .15*1 = 0.825
 // cell B: same measurements but floodway_pct = 10 -> mask factor 0 -> score 0
 // cell C: slope 60 -> trips slope_limit (>40) -> score 0; also nlcd 999
-//         (unlisted class -> miss_score 0.5 must be used, NOT NULL)
-// parcel P1 = 100% cell A                      -> score 0.75
-// parcel P2 = 80% cell A + 20% cell B          -> score 0.8*0.75 = 0.6
+//         (unlisted class -> miss_score 0.5 must be used, NOT NULL);
+//         hwy_drive_min 25.0 (beyond the 10 min bound, m=0.0; irrelevant here
+//         since the slope_limit mask already zeroes this cell)
+// parcel P1 = 100% cell A                      -> score 0.825
+// parcel P2 = 80% cell A + 20% cell B          -> score 0.8*0.825 = 0.66
 //   (UNEQUAL fracs on purpose: with 50/50 an unweighted AVG(score) mutation
 //    is indistinguishable from the overlap-weighted mean — found by mutation
 //    testing; masked_frac = 0*0.8 + 1*0.2 = 0.2)
 const FIXTURE = `
 CREATE TABLE cells AS SELECT * FROM (VALUES
-  ('a', 'a9', 'a8', true,  20.0, 0.0, 0.0,  0.0, 1::TINYINT, 'authoritative', 1500.0, 3000.0, 0.0, 23::SMALLINT),
-  ('b', 'b9', 'b8', true,  20.0, 0.0, 0.0, 10.0, 1::TINYINT, 'authoritative', 1500.0, 3000.0, 0.0, 23::SMALLINT),
-  ('c', 'c9', 'c8', false, 60.0, 0.0, 0.0,  0.0, 1::TINYINT, 'none',          1500.0, 3000.0, 0.0, 999::SMALLINT)
+  ('a', 'a9', 'a8', true,  20.0, 0.0, 0.0,  0.0, 1::TINYINT, 'authoritative', 1500.0, 3000.0, 0.0, 23::SMALLINT,  10.0),
+  ('b', 'b9', 'b8', true,  20.0, 0.0, 0.0, 10.0, 1::TINYINT, 'authoritative', 1500.0, 3000.0, 0.0, 23::SMALLINT,  10.0),
+  ('c', 'c9', 'c8', false, 60.0, 0.0, 0.0,  0.0, 1::TINYINT, 'none',          1500.0, 3000.0, 0.0, 999::SMALLINT, 25.0)
 ) t(h3_index, h3_r9, h3_r8, in_county, slope_mean_pct, slope_pct_gt15, flood_pct_a_ae,
-    floodway_pct, water_in_service, water_conf, road_dist_m, transmission_dist_m, mined_pct, nlcd_mode);
+    floodway_pct, water_in_service, water_conf, road_dist_m, transmission_dist_m, mined_pct, nlcd_mode,
+    hwy_drive_min);
 CREATE TABLE xwalk AS SELECT * FROM (VALUES
   ('P1', 'a', 1.0), ('P2', 'a', 0.8), ('P2', 'b', 0.2)
 ) t(parcel_id, h3_index, overlap_frac);
@@ -70,28 +77,28 @@ describe('membershipSQL', () => {
 describe('cell scores (WLC + masks)', () => {
   it('hand-computed scores match', async () => {
     const r = await rows(`${buildCellScoreSQL(reg, cfg)} ORDER BY h3_index`);
-    expect(Number(r[0].score)).toBeCloseTo(0.75, 6);  // cell a
+    expect(Number(r[0].score)).toBeCloseTo(0.825, 6); // cell a
     expect(Number(r[1].score)).toBeCloseTo(0.0, 6);   // cell b: floodway masked
     expect(Number(r[2].score)).toBeCloseTo(0.0, 6);   // cell c: slope_limit masked
   });
   it('disabling the floodway mask restores cell b', async () => {
     const noFloodway = { ...cfg, masksEnabled: { ...cfg.masksEnabled, floodway: false } };
     const r = await rows(`${buildCellScoreSQL(reg, noFloodway)} ORDER BY h3_index`);
-    expect(Number(r[1].score)).toBeCloseTo(0.75, 6);
+    expect(Number(r[1].score)).toBeCloseTo(0.825, 6);
   });
   it('weights are normalized: doubling every weight changes nothing', async () => {
     const doubled = { ...cfg, weights: Object.fromEntries(
       Object.entries(cfg.weights).map(([k, v]) => [k, v * 2])) };
     const r = await rows(`${buildCellScoreSQL(reg, doubled)} ORDER BY h3_index`);
-    expect(Number(r[0].score)).toBeCloseTo(0.75, 6);
+    expect(Number(r[0].score)).toBeCloseTo(0.825, 6);
   });
 });
 
 describe('parcel scores', () => {
   it('overlap-weighted means match hand computation', async () => {
     const r = await rows(`SELECT * FROM (${buildParcelScoreSQL(reg, cfg)}) ORDER BY parcel_id`);
-    expect(Number(r[0].score)).toBeCloseTo(0.75, 6);   // P1
-    expect(Number(r[1].score)).toBeCloseTo(0.6, 6);    // P2: 0.8*0.75 + 0.2*0
+    expect(Number(r[0].score)).toBeCloseTo(0.825, 6);  // P1
+    expect(Number(r[1].score)).toBeCloseTo(0.66, 6);   // P2: 0.8*0.825 + 0.2*0
     expect(Number(r[1].masked_frac)).toBeCloseTo(0.2, 6);
     expect(r[0].FullOwnerName).toBe('OWNER ONE');
   });
@@ -127,10 +134,10 @@ describe('geometric aggregation', () => {
     const geo = { ...cfg, aggregation: 'geometric' as const };
     const r = await rows(`${buildCellScoreSQL(reg, geo)} ORDER BY h3_index`);
     const a = Number(r[0].score);
-    // hand: exp(.2*ln(.5)+.15*ln(1)+.2*ln(1)+.15*ln(.5)+.15*ln(.5)+.15*ln(1))
-    //     = exp(0.5*ln(0.5)) = 0.7071
-    expect(a).toBeCloseTo(Math.SQRT1_2, 4);
-    expect(a).toBeLessThan(0.75);
+    // hand: exp(.2*ln(.5)+.15*ln(1)+.2*ln(1)+.15*ln(1.0)+.15*ln(.5)+.15*ln(1))
+    //     = exp((.2+.15)*ln(0.5)) = 0.5^0.35 = 0.784584
+    expect(a).toBeCloseTo(0.784584, 4);
+    expect(a).toBeLessThan(0.825);
   });
 });
 
@@ -141,22 +148,20 @@ describe('steps normalization', () => {
     { score: 0.0, label: 'not advised' },
   ]};
 
-  it('bounds are inclusive: a value exactly at max lands in that class', async () => {
-    const cfgSteps = { ...cfg, normalization: { roads: { mode: 'steps' as const, steps: [
-      { max: 1500, score: 1.0, label: 'close' }, { score: 0.0, label: 'far' },
-    ]}}};
-    const r = await rows(`${buildCellScoreSQL(reg, cfgSteps)} ORDER BY h3_index`);
-    expect(Number(r[0].m_roads)).toBeCloseTo(1.0, 9); // road_dist_m = 1500 exactly
+  it('bounds are inclusive: a value exactly at max lands in that class (registry default, no override)', async () => {
+    const r = await rows(`${buildCellScoreSQL(reg, cfg)} ORDER BY h3_index`);
+    expect(Number(r[0].m_hwy_access)).toBeCloseTo(1.0, 9); // hwy_drive_min = 10.0 exactly, <=10 min bound
   });
 
   it('slope classes replace the curve; hand-computed cell/parcel scores', async () => {
     const cfgSteps = { ...cfg, normalization: { slope: SLOPE_STEPS } };
     const r = await rows(`${buildCellScoreSQL(reg, cfgSteps)} ORDER BY h3_index`);
-    // cell a: slope 20 > 17.63 -> m_slope 0. WLC = .2*0+.15*1+.2*1+.15*.5+.15*.5+.15*1 = 0.65
+    // cell a: slope 20 > 17.63 -> m_slope 0. WLC = .2*0+.15*1+.2*1+.15*1.0+.15*.5+.15*1
+    //       = 0.825 - .2*.5 = 0.725
     expect(Number(r[0].m_slope)).toBeCloseTo(0.0, 9);
-    expect(Number(r[0].score)).toBeCloseTo(0.65, 6);
+    expect(Number(r[0].score)).toBeCloseTo(0.725, 6);
     const p = await rows(`SELECT * FROM (${buildParcelScoreSQL(reg, cfgSteps)}) ORDER BY parcel_id`);
-    expect(Number(p[0].score)).toBeCloseTo(0.65, 6);   // P1 = 100% cell a
+    expect(Number(p[0].score)).toBeCloseTo(0.725, 6);  // P1 = 100% cell a
   });
 
   it('invalid steps throw before any SQL is generated', () => {

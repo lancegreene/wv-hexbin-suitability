@@ -36,7 +36,7 @@ def run(fips):
     # supporting columns (confidence flags, informational stats) beyond the
     # registry, but an unexpected one is worth eyes (e.g. a renamed criterion's
     # orphaned parquet would otherwise slip into the published artifact)
-    known_extra = {"water_conf", "slope_pct_gt15"}
+    known_extra = {"water_conf", "slope_pct_gt15", "road_dist_m"}
     unexpected = set(cells.columns) - expected - {"h3_index", "h3_r9", "h3_r8", "in_county"} - known_extra
     if unexpected:
         print(f"validate: WARNING — measured columns not in criteria.json: {sorted(unexpected)}")

@@ -2,9 +2,10 @@
 
 
 def run_all(fips, only=None):
-    from . import flood, landcover, mined, roads, slope, transmission, water
+    from . import flood, hwy_access, landcover, mined, roads, slope, transmission, water
     modules = {"slope": slope, "flood": flood, "water": water, "roads": roads,
-               "transmission": transmission, "mined": mined, "landcover": landcover}
+               "transmission": transmission, "mined": mined, "landcover": landcover,
+               "hwy_access": hwy_access}
     if only:
         if only not in modules:
             raise SystemExit(f"unknown measure module '{only}'; choose from {sorted(modules)}")

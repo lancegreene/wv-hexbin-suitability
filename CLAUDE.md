@@ -78,6 +78,9 @@ mean of their cells.
 - Published artifacts land in `data/processed/<fips>/`; intermediates in
   `data/work/<fips>/`; the measure stage is the slow one (~30 min/county,
   slope zonal passes dominate).
+- App dev server: `cd app && npm run dev` (serves `data/processed/54081/` artifacts at /)
+- App tests: `cd app && npm test` (golden scoring tests run real DuckDB via @duckdb/node-api)
+- App build: `cd app && npm run build`
 
 ## Scope
 

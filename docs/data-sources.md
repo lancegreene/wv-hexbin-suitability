@@ -200,3 +200,6 @@ published to `data/processed/54081/`.
 | Median distance to transmission | 2,109 m |
 | Dominant NLCD class | 41 deciduous forest (76.2%) |
 | Measure-stage wall time | ~27 min (grid to last measure module; slope zonal passes alone ~12.5 min) |
+
+**2026-09-02 — browser app (Plan 2) implemented**; artifacts consumed unchanged.
+Re-score latency ~1.4-1.6 s (60,683 parcels + hex agg per change); parcel-choropleth first paint ~30 s (19 MB GeoJSON parse).

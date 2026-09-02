@@ -35,4 +35,6 @@ export interface ScoringConfig {
   aggregation: 'wlc' | 'geometric';
   resolution: 8 | 9 | 10;
   displayMode: 'hex' | 'parcel';
+  basemap: 'none' | 'streets' | 'imagery'; // external Esri tiles; 'none' keeps the app offline
+  scoreOpacity: number;                    // 0-1 alpha multiplier on the score layers
 }

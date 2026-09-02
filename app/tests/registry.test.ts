@@ -38,5 +38,7 @@ describe('registry', () => {
     expect(cfg.aggregation).toBe('wlc');
     expect(cfg.resolution).toBe(8);
     expect(cfg.displayMode).toBe('hex');
+    expect(cfg.basemap).toBe('none');
+    expect(cfg.scoreOpacity).toBeCloseTo(0.8);
   });
 });

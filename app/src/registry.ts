@@ -35,5 +35,7 @@ export function defaultConfig(reg: Registry): ScoringConfig {
     aggregation: 'wlc',
     resolution: 8,
     displayMode: 'hex',
+    basemap: 'none',
+    scoreOpacity: 0.8,
   };
 }

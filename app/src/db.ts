@@ -48,6 +48,17 @@ async function doInit(): Promise<void> {
     await conn.query(`CREATE VIEW ${VIEWS[name]} AS SELECT * FROM read_parquet('${name}')`);
   }
 
+  for (const name of ['parcels.geojson', 'county_boundary.geojson']) {
+    const head = await fetch(`/${name}`, { method: 'HEAD' });
+    if (!head.ok) {
+      throw new Error(
+        `artifact missing: ${name} (HTTP ${head.status}).\n` +
+          `Expected the pipeline outputs in data/processed/54081/ — run the ` +
+          `pipeline's validate stage, then restart the dev server.`,
+      );
+    }
+  }
+
   // Fail at startup, not at first slider drag, if the registry and the
   // artifact schema have drifted apart.
   const cols = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'cells'`);

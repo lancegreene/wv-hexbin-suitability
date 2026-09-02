@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { deletePreset, listPresets, loadPreset, parsePreset, savePreset, serializePreset } from '../persistence';
-import { degToPct, metersToMiles, milesToMeters, pctToDeg, validateSteps } from '../steps';
+import { degToPct, effectiveSteps, metersToMiles, milesToMeters, pctToDeg, validateSteps } from '../steps';
 import type { Criterion, Registry, ScoringConfig, Step } from '../types';
 
 interface Props {
@@ -22,7 +22,8 @@ function fromDisplay(unit: string, shown: number): number {
   if (unit === 'meters') return milesToMeters(shown);
   return shown;
 }
-const unitLabel = (unit: string) => (unit === 'pct_slope' ? '°' : unit === 'meters' ? 'mi' : '%');
+const unitLabel = (unit: string) =>
+  unit === 'pct_slope' ? '°' : unit === 'meters' ? 'mi' : unit === 'minutes' ? 'min' : '%';
 
 function StepsEditor({ c, steps, onSteps }: {
   c: Criterion; steps: Step[]; onSteps: (s: Step[]) => void;
@@ -97,24 +98,37 @@ export default function SettingsDrawer({ registry, config, onChange, onClose }: 
         <button className="secondary" onClick={onClose}>close</button>
       </div>
 
-      {registry.criteria.filter((c) => EDITABLE_UNITS.has(c.unit)).map((c) => {
+      {registry.criteria.filter((c) => EDITABLE_UNITS.has(c.unit) || c.membership.fn === 'steps').map((c) => {
         const ov = config.normalization[c.key];
-        const stepped = ov?.mode === 'steps';
+        const isDefaultSteps = c.membership.fn === 'steps'; // no curve fallback to offer
+        const hasOverride = ov?.mode === 'steps';
+        const stepped = hasOverride || isDefaultSteps;
+        const resetToDefault = () => {
+          const { [c.key]: _drop, ...rest } = config.normalization;
+          onChange({ ...config, normalization: rest });
+        };
         return (
           <section className="panel-card" key={c.key}>
             <div className="group-title">{c.label}</div>
             <div className="controls-row">
-              <label><input type="radio" checked={!stepped}
-                onChange={() => {
-                  const { [c.key]: _drop, ...rest } = config.normalization;
-                  onChange({ ...config, normalization: rest });
-                }} /> Curve</label>
-              <label><input type="radio" checked={stepped}
-                onChange={() => onChange({ ...config, normalization: {
-                  ...config.normalization, [c.key]: { mode: 'steps', steps: defaultStepsFor(c) } } })} /> Classes</label>
+              {isDefaultSteps ? (
+                <span>
+                  {hasOverride ? 'Classes (custom)' : 'Classes (default)'}
+                  {hasOverride && (
+                    <button className="secondary" onClick={resetToDefault}>reset to default</button>
+                  )}
+                </span>
+              ) : (
+                <>
+                  <label><input type="radio" checked={!stepped} onChange={resetToDefault} /> Curve</label>
+                  <label><input type="radio" checked={stepped}
+                    onChange={() => onChange({ ...config, normalization: {
+                      ...config.normalization, [c.key]: { mode: 'steps', steps: defaultStepsFor(c) } } })} /> Classes</label>
+                </>
+              )}
             </div>
             {stepped ? (
-              <StepsEditor c={c} steps={(ov as { steps: Step[] }).steps}
+              <StepsEditor c={c} steps={effectiveSteps(c, ov) ?? defaultStepsFor(c)}
                 onSteps={(steps) => onChange({ ...config, normalization: {
                   ...config.normalization, [c.key]: { mode: 'steps', steps } } })} />
             ) : (

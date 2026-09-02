@@ -1,4 +1,5 @@
 import registryJson from '../../config/criteria.json';
+import { validateSteps } from './steps';
 import type { Registry, ScoringConfig } from './types';
 
 /** Validate + return the criteria registry. Pass an override for tests. */
@@ -17,6 +18,12 @@ export function loadRegistry(raw?: unknown): Registry {
     if (c.membership.fn === 'lookup' && typeof c.membership.miss_score !== 'number') {
       throw new Error(`criteria.json: lookup criterion '${c.key}' needs miss_score — ` +
         `an unmatched class must score, not go NULL`);
+    }
+    if (c.membership.fn === 'steps') {
+      const errors = validateSteps(c.membership.steps);
+      if (errors.length) {
+        throw new Error(`criteria.json: invalid default classes for '${c.key}': ${errors.join('; ')}`);
+      }
     }
   }
   for (const m of reg.masks) {

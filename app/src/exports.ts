@@ -1,4 +1,4 @@
-import { labelForScore } from './steps';
+import { effectiveSteps, labelForScore } from './steps';
 import type { Registry, ScoringConfig } from './types';
 
 function download(filename: string, mime: string, content: string): void {
@@ -19,14 +19,15 @@ const csvCell = (v: unknown): string => {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
-/** For each stepped criterion (keyed off config.normalization), the class label
+/** For each stepped criterion (override or registry-default), the class label
  *  (prefixed `~` when inexact) for a row. */
-function classProperties(row: Record<string, unknown>, config: ScoringConfig): Record<string, string> {
+function classProperties(row: Record<string, unknown>, reg: Registry, config: ScoringConfig): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const [key, ov] of Object.entries(config.normalization)) {
-    if (ov.mode !== 'steps') continue;
-    const { label, exact } = labelForScore(ov.steps, Number(row[`m_${key}`]));
-    out[`${key}_class`] = exact ? label : `~${label}`;
+  for (const c of reg.criteria) {
+    const steps = effectiveSteps(c, config.normalization[c.key]);
+    if (!steps) continue;
+    const { label, exact } = labelForScore(steps, Number(row[`m_${c.key}`]));
+    out[`${c.key}_class`] = exact ? label : `~${label}`;
   }
   return out;
 }
@@ -34,14 +35,14 @@ function classProperties(row: Record<string, unknown>, config: ScoringConfig): R
 /** Full ranked parcel list -> CSV download. */
 export function exportCSV(rows: Record<string, unknown>[], reg: Registry, config: ScoringConfig): void {
   const steppedKeys = reg.criteria
-    .filter((c) => config.normalization[c.key]?.mode === 'steps')
+    .filter((c) => effectiveSteps(c, config.normalization[c.key]) !== null)
     .map((c) => `${c.key}_class`);
   const cols = ['parcel_id', 'score', 'masked_frac', 'acres', 'FullOwnerName',
     'DistrictName', 'PropertyClassDescription', ...reg.criteria.map((c) => `m_${c.key}`), ...steppedKeys];
   const lines = [
     'rank,' + cols.join(','),
     ...rows.map((r, i) => {
-      const withClass = { ...r, ...classProperties(r, config) };
+      const withClass = { ...r, ...classProperties(r, reg, config) };
       return `${i + 1},` + cols.map((c) => csvCell(withClass[c])).join(',');
     }),
   ];
@@ -52,6 +53,7 @@ export function exportCSV(rows: Record<string, unknown>[], reg: Registry, config
 export function exportGeoJSON(
   rows: Record<string, unknown>[],
   parcelsGeojson: { type: string; features: { properties: { parcel_id: string } }[] },
+  reg: Registry,
   config: ScoringConfig,
 ): void {
   const byId = new Map(rows.map((r, i) => [String(r.parcel_id), { ...r, rank: i + 1 }]));
@@ -59,7 +61,7 @@ export function exportGeoJSON(
     .filter((f) => byId.has(f.properties.parcel_id))
     .map((f) => {
       const r = byId.get(f.properties.parcel_id)!;
-      return { ...f, properties: { ...f.properties, ...r, ...classProperties(r, config) } };
+      return { ...f, properties: { ...f.properties, ...r, ...classProperties(r, reg, config) } };
     });
   download('parcel_scores_54081.geojson', 'application/geo+json',
     JSON.stringify({ type: 'FeatureCollection', features }));

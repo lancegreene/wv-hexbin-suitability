@@ -30,6 +30,19 @@ describe('registry', () => {
     ).toThrow(/incomplete/);
   });
 
+  it('accepts a registry-default steps membership and rejects an invalid one', () => {
+    const mk = (steps: unknown) => ({
+      criteria: [{ key: 'x', label: 'x', column: 'c', group: 'g', weight: 1,
+        confidence: 'authoritative', unit: 'minutes',
+        membership: { fn: 'steps', steps } as never }],
+      masks: [],
+    });
+    expect(() => loadRegistry(mk([{ max: 10, score: 1, label: 'near' },
+      { score: 0, label: 'far' }]))).not.toThrow();
+    expect(() => loadRegistry(mk([{ max: 10, score: 1, label: 'near' }])))
+      .toThrow(/invalid default classes for 'x'/);
+  });
+
   it('builds defaults from the registry', () => {
     const cfg = defaultConfig(loadRegistry());
     expect(cfg.weights['slope']).toBeCloseTo(0.2);

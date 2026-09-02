@@ -1,4 +1,4 @@
-import { labelForScore } from '../steps';
+import { effectiveSteps, labelForScore } from '../steps';
 import type { Registry, ScoringConfig } from '../types';
 
 const TOP_N = 500; // table shows the head; exports include every parcel
@@ -43,8 +43,8 @@ export default function RankTable({ registry, config, rows, onRowClick, onExport
               </td>
               {registry.criteria.map((c) => {
                 const v = Number(r[`m_${c.key}`]);
-                const ov = config.normalization[c.key];
-                const lab = ov?.mode === 'steps' ? labelForScore(ov.steps, v) : null;
+                const steps = effectiveSteps(c, config.normalization[c.key]);
+                const lab = steps ? labelForScore(steps, v) : null;
                 return (
                   <td key={c.key}>
                     {v.toFixed(2)}

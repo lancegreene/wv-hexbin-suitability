@@ -4,7 +4,7 @@ import DeckGL from '@deck.gl/react';
 import { useEffect, useState } from 'react';
 import MapControls from './MapControls';
 import Legend from './Legend';
-import { labelForScore } from '../steps';
+import { effectiveSteps, labelForScore } from '../steps';
 import type { Registry, ScoringConfig } from '../types';
 
 // Viridis-ish 6-stop ramp, low -> high suitability
@@ -119,9 +119,9 @@ export default function MapView({ config, registry, hexRows, parcelScores, parce
           const breakdown = registry.criteria
             .map((c) => {
               const v = Number(row[`m_${c.key}`]);
-              const ov = config.normalization[c.key];
-              if (ov?.mode === 'steps') {
-                const { label, exact } = labelForScore(ov.steps, v);
+              const steps = effectiveSteps(c, config.normalization[c.key]);
+              if (steps) {
+                const { label, exact } = labelForScore(steps, v);
                 return `${c.label}: ${v.toFixed(2)} — ${exact ? '' : '~'}${label}`;
               }
               return `${c.label}: ${v.toFixed(2)}`;

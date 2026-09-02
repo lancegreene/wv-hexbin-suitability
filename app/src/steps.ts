@@ -1,4 +1,4 @@
-import type { Step } from './types';
+import type { Criterion, NormalizationOverride, Step } from './types';
 
 /** Returns [] when valid, else human-readable problems (shown inline in the drawer). */
 export function validateSteps(steps: Step[]): string[] {
@@ -22,6 +22,17 @@ export function validateSteps(steps: Step[]): string[] {
     if (!s.label.trim()) errors.push('every class needs a label');
   }
   return errors;
+}
+
+/** The steps in effect for a criterion: override first, else registry default, else null. */
+export function effectiveSteps(
+  c: Pick<Criterion, 'membership'>,
+  override: NormalizationOverride | undefined,
+): Step[] | null {
+  if (override?.mode === 'steps') return override.steps;
+  if (override?.mode === 'curve') return null;
+  if (c.membership.fn === 'steps') return c.membership.steps;
+  return null;
 }
 
 export const degToPct = (deg: number): number => Math.tan((deg * Math.PI) / 180) * 100;

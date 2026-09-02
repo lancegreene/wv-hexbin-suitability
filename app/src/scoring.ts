@@ -17,20 +17,23 @@ export function membershipSQL(m: MembershipFn, column: string): string {
         .join(' ');
       return `(CASE CAST(${column} AS VARCHAR) ${whens} ELSE ${m.miss_score} END)`;
     }
+    case 'steps': {
+      const bounded = m.steps.filter((s) => s.max !== undefined);
+      const catchall = m.steps.find((s) => s.max === undefined)!;
+      const whens = bounded.map((s) => `WHEN ${column} <= ${s.max} THEN ${s.score}`).join(' ');
+      return `(CASE ${whens} ELSE ${catchall.score} END)`;
+    }
   }
 }
 
-/** SQL for one criterion honoring any steps override; curve = registry membership. */
+/** SQL for one criterion honoring any steps override; curve/registry-default steps = registry membership. */
 export function effectiveMembershipSQL(c: Criterion, override: NormalizationOverride | undefined): string {
   if (override?.mode === 'steps') {
     const errors = validateSteps(override.steps);
     if (errors.length) {
       throw new Error(`invalid classes for ${c.key}: ${errors.join('; ')}`);
     }
-    const bounded = override.steps.filter((s) => s.max !== undefined);
-    const catchall = override.steps.find((s) => s.max === undefined)!;
-    const whens = bounded.map((s) => `WHEN ${c.column} <= ${s.max} THEN ${s.score}`).join(' ');
-    return `(CASE ${whens} ELSE ${catchall.score} END)`;
+    return membershipSQL({ fn: 'steps', steps: override.steps }, c.column);
   }
   return membershipSQL(c.membership, c.column);
 }

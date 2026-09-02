@@ -1,7 +1,14 @@
+export interface Step {
+  max?: number;  // inclusive upper bound in the column's stored unit; absent = catch-all (must be last)
+  score: number; // 0-1
+  label: string; // plain-English class meaning, surfaces in tooltip/table/CSV
+}
+
 export type MembershipFn =
   | { fn: 'small'; midpoint: number; spread: number }
   | { fn: 'binary' }
-  | { fn: 'lookup'; miss_score: number; table: Record<string, number> };
+  | { fn: 'lookup'; miss_score: number; table: Record<string, number> }
+  | { fn: 'steps'; steps: Step[] };
 
 export interface Criterion {
   key: string;
@@ -12,13 +19,7 @@ export interface Criterion {
   weight: number;
   confidence: string;
   confidence_column?: string;
-  unit: 'pct_slope' | 'pct' | 'meters' | 'binary' | 'category';
-}
-
-export interface Step {
-  max?: number;  // inclusive upper bound in the column's stored unit; absent = catch-all (must be last)
-  score: number; // 0-1
-  label: string; // plain-English class meaning, surfaces in tooltip/table/CSV
+  unit: 'pct_slope' | 'pct' | 'meters' | 'binary' | 'category' | 'minutes';
 }
 
 export type NormalizationOverride =

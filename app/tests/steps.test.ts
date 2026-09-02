@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { degToPct, labelForScore, metersToMiles, milesToMeters, pctToDeg, validateSteps } from '../src/steps';
+import { degToPct, effectiveSteps, labelForScore, metersToMiles, milesToMeters, pctToDeg, validateSteps } from '../src/steps';
 import type { Step } from '../src/types';
 
 const GOOD: Step[] = [
@@ -36,6 +36,19 @@ describe('unit conversions', () => {
   });
   it('miles round-trip', () =>
     expect(metersToMiles(milesToMeters(3.2))).toBeCloseTo(3.2, 9));
+});
+
+describe('effectiveSteps', () => {
+  const defSteps = [{ max: 10, score: 1, label: 'near' }, { score: 0, label: 'far' }];
+  const curveCrit = { membership: { fn: 'small', midpoint: 1, spread: 1 } } as never;
+  const stepsCrit = { membership: { fn: 'steps', steps: defSteps } } as never;
+  it('override wins', () =>
+    expect(effectiveSteps(stepsCrit, { mode: 'steps', steps: [{ score: 1, label: 'a' },
+      { score: 0, label: 'b' }] })?.[0].label).toBe('a'));
+  it('registry default steps apply when no override', () =>
+    expect(effectiveSteps(stepsCrit, undefined)?.[0].label).toBe('near'));
+  it('curve criterion without override has no steps', () =>
+    expect(effectiveSteps(curveCrit, undefined)).toBeNull());
 });
 
 describe('labelForScore', () => {

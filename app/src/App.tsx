@@ -139,7 +139,7 @@ export default function App() {
         }}
         onExportCSV={() => exportCSV(parcelRows, registry, config)}
         onExportGeoJSON={() => parcelsGeojson &&
-          exportGeoJSON(parcelRows, parcelsGeojson as never, config)}
+          exportGeoJSON(parcelRows, parcelsGeojson as never, registry, config)}
       />
     </div>
   );

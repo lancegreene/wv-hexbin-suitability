@@ -1,0 +1,24 @@
+/* styles.css */
+* { box-sizing: border-box; margin: 0; }
+html, body, #root { height: 100%; }
+body { font: 13px/1.45 system-ui, sans-serif; background: #16181d; color: #d9dce1; }
+.loading, .error-screen { display: flex; align-items: center; justify-content: center; height: 100%; padding: 2rem; text-align: center; white-space: pre-wrap; }
+.error-screen { color: #ff7b72; }
+.app { display: flex; flex-direction: column; height: 100%; }
+.app-main { display: flex; flex: 1; min-height: 0; }
+.panel { width: 300px; overflow-y: auto; padding: 12px; background: #1c1f26; border-right: 1px solid #2a2e37; }
+.map-wrap { flex: 1; position: relative; }
+.rank-dock { height: 34%; min-height: 180px; overflow: auto; background: #1c1f26; border-top: 1px solid #2a2e37; }
+.rank-dock table { width: 100%; border-collapse: collapse; }
+.rank-dock th, .rank-dock td { padding: 3px 8px; text-align: right; white-space: nowrap; }
+.rank-dock th { position: sticky; top: 0; background: #232733; cursor: default; }
+.rank-dock td:nth-child(2), .rank-dock th:nth-child(2) { text-align: left; }
+.rank-dock tr:hover td { background: #262b36; }
+.slider-row { margin: 8px 0; }
+.slider-row label { display: flex; justify-content: space-between; }
+.badge { font-size: 10px; padding: 0 4px; border-radius: 3px; background: #7d5900; color: #ffd57a; margin-left: 6px; }
+.group-title { margin: 14px 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #8a919e; }
+.controls-row { display: flex; gap: 8px; align-items: center; margin: 6px 0; flex-wrap: wrap; }
+button { background: #2d6cdf; color: white; border: 0; border-radius: 4px; padding: 4px 10px; cursor: pointer; }
+button.secondary { background: #3a4150; }
+.masked-flag { color: #ff7b72; }

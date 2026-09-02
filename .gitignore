@@ -5,3 +5,5 @@ data/work/
 data/processed/
 __pycache__/
 *.egg-info/
+node_modules/
+app/dist/

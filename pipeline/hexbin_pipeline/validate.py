@@ -49,7 +49,8 @@ def run(fips):
     xw_path = paths.work_dir(fips) / "parcel_cell_xwalk.parquet"
     pq_path = paths.work_dir(fips) / "parcels.parquet"
     gj_path = paths.work_dir(fips) / "parcels.geojson"
-    for p in (xw_path, pq_path, gj_path):
+    bd_path = paths.work_dir(fips) / "county_boundary.geojson"
+    for p in (xw_path, pq_path, gj_path, bd_path):
         if not p.exists() or p.stat().st_size == 0:
             problems.append(f"missing or empty artifact: {p.name}")
     if xw_path.exists() and pq_path.exists():
@@ -73,4 +74,5 @@ def run(fips):
     shutil.copy2(xw_path, out / "parcel_cell_xwalk.parquet")
     shutil.copy2(pq_path, out / "parcels.parquet")
     shutil.copy2(gj_path, out / "parcels.geojson")
+    shutil.copy2(bd_path, out / "county_boundary.geojson")
     print(f"validate: OK — {len(cells)} cells, {len(cells.columns)} columns published to {out}")

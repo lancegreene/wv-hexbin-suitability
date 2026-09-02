@@ -45,4 +45,8 @@ def run(fips):
     gdf.to_parquet(dest)
     print(f"grid: {len(gdf)} res-10 cells for {fips} "
           f"({int(gdf.in_county.sum())} in-county, {int((~gdf.in_county).sum())} buffer fringe) -> {dest}")
+
+    boundary_path = grid_path(fips).parent / "county_boundary.geojson"
+    county.to_crs("EPSG:4326")[["geometry"]].to_file(boundary_path, driver="GeoJSON")
+    print(f"grid: wrote county boundary -> {boundary_path}")
     return dest

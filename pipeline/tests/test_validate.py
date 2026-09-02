@@ -22,6 +22,7 @@ def staged(seven_cells, tmp_path, monkeypatch):
         .to_parquet(paths.work_dir(fips) / "parcel_cell_xwalk.parquet", index=False)
     pd.DataFrame({"parcel_id": ["P1"]}).to_parquet(paths.work_dir(fips) / "parcels.parquet", index=False)
     (paths.work_dir(fips) / "parcels.geojson").write_text('{"type":"FeatureCollection","features":[]}')
+    (paths.work_dir(fips) / "county_boundary.geojson").write_text('{"type":"FeatureCollection","features":[]}')
     return fips
 
 
@@ -30,6 +31,13 @@ def test_clean_run_publishes(staged):
     out = pd.read_parquet(paths.processed_dir(staged) / "cells_r10.parquet")
     assert len(out) == 7
     assert "slope_mean_pct" in out.columns and "h3_r8" in out.columns
+    assert (paths.processed_dir(staged) / "county_boundary.geojson").exists()
+
+
+def test_missing_boundary_halts(staged):
+    (paths.work_dir(staged) / "county_boundary.geojson").unlink()
+    with pytest.raises(SystemExit):
+        validate.run(staged)
 
 
 def test_missing_column_halts(staged):

@@ -1,4 +1,5 @@
-import type { MembershipFn, Registry, ScoringConfig } from './types';
+import { validateSteps } from './steps';
+import type { Criterion, MembershipFn, NormalizationOverride, Registry, ScoringConfig } from './types';
 
 /** SQL expression producing the 0-1 membership value for one criterion. */
 export function membershipSQL(m: MembershipFn, column: string): string {
@@ -17,6 +18,21 @@ export function membershipSQL(m: MembershipFn, column: string): string {
       return `(CASE CAST(${column} AS VARCHAR) ${whens} ELSE ${m.miss_score} END)`;
     }
   }
+}
+
+/** SQL for one criterion honoring any steps override; curve = registry membership. */
+export function effectiveMembershipSQL(c: Criterion, override: NormalizationOverride | undefined): string {
+  if (override?.mode === 'steps') {
+    const errors = validateSteps(override.steps);
+    if (errors.length) {
+      throw new Error(`invalid classes for ${c.key}: ${errors.join('; ')}`);
+    }
+    const bounded = override.steps.filter((s) => s.max !== undefined);
+    const catchall = override.steps.find((s) => s.max === undefined)!;
+    const whens = bounded.map((s) => `WHEN ${c.column} <= ${s.max} THEN ${s.score}`).join(' ');
+    return `(CASE ${whens} ELSE ${catchall.score} END)`;
+  }
+  return membershipSQL(c.membership, c.column);
 }
 
 function maskFactorSQL(reg: Registry, cfg: ScoringConfig): string {
@@ -45,7 +61,7 @@ function normalizedWeights(reg: Registry, cfg: ScoringConfig): Map<string, numbe
 export function buildCellScoreSQL(reg: Registry, cfg: ScoringConfig): string {
   const w = normalizedWeights(reg, cfg);
   const memberCols = reg.criteria
-    .map((c) => `${membershipSQL(c.membership, c.column)} AS m_${c.key}`)
+    .map((c) => `${effectiveMembershipSQL(c, cfg.normalization[c.key])} AS m_${c.key}`)
     .join(',\n    ');
   const agg =
     cfg.aggregation === 'wlc'

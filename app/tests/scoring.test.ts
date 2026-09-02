@@ -133,3 +133,35 @@ describe('geometric aggregation', () => {
     expect(a).toBeLessThan(0.75);
   });
 });
+
+describe('steps normalization', () => {
+  const SLOPE_STEPS = { mode: 'steps' as const, steps: [
+    { max: 8.75, score: 1.0, label: 'no limitations' },
+    { max: 17.63, score: 0.5, label: 'some grading' },
+    { score: 0.0, label: 'not advised' },
+  ]};
+
+  it('bounds are inclusive: a value exactly at max lands in that class', async () => {
+    const cfgSteps = { ...cfg, normalization: { roads: { mode: 'steps' as const, steps: [
+      { max: 1500, score: 1.0, label: 'close' }, { score: 0.0, label: 'far' },
+    ]}}};
+    const r = await rows(`${buildCellScoreSQL(reg, cfgSteps)} ORDER BY h3_index`);
+    expect(Number(r[0].m_roads)).toBeCloseTo(1.0, 9); // road_dist_m = 1500 exactly
+  });
+
+  it('slope classes replace the curve; hand-computed cell/parcel scores', async () => {
+    const cfgSteps = { ...cfg, normalization: { slope: SLOPE_STEPS } };
+    const r = await rows(`${buildCellScoreSQL(reg, cfgSteps)} ORDER BY h3_index`);
+    // cell a: slope 20 > 17.63 -> m_slope 0. WLC = .2*0+.15*1+.2*1+.15*.5+.15*.5+.15*1 = 0.65
+    expect(Number(r[0].m_slope)).toBeCloseTo(0.0, 9);
+    expect(Number(r[0].score)).toBeCloseTo(0.65, 6);
+    const p = await rows(`SELECT * FROM (${buildParcelScoreSQL(reg, cfgSteps)}) ORDER BY parcel_id`);
+    expect(Number(p[0].score)).toBeCloseTo(0.65, 6);   // P1 = 100% cell a
+  });
+
+  it('invalid steps throw before any SQL is generated', () => {
+    const bad = { ...cfg, normalization: { slope: { mode: 'steps' as const, steps: [
+      { max: 10, score: 1, label: 'a' }] } } };
+    expect(() => buildCellScoreSQL(reg, bad)).toThrow(/invalid classes for slope/);
+  });
+});

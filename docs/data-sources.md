@@ -204,3 +204,4 @@ published to `data/processed/54081/`.
 **2026-09-02 — browser app (Plan 2) implemented**; artifacts consumed unchanged.
 Re-score latency ~1.4-1.6 s (60,683 parcels + hex agg per change); parcel-choropleth first paint ~30 s (19 MB GeoJSON parse).
 **2026-09-02 — UI polish: Esri basemaps, county outline artifact, map chrome.**
+**2026-09-02 — Phase A classed scoring: per-criterion class tiers, settings drawer, presets.**

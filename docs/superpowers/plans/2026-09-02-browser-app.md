@@ -1163,6 +1163,30 @@ git commit -m "docs: app commands and run-log note"
 
 ---
 
+## Post-review corrections (2026-09-02 — real data falsified plan assumptions)
+
+The final whole-branch review checked the executed app against the actual
+Raleigh County artifacts. Corrections applied on the `app` branch (the code
+is authoritative where it differs from the task snippets above):
+
+- **Task 3 `buildHexAggSQL`:** `MIN(mask_factor)` → `AVG(mask_factor)`. MIN
+  painted a res-8 parent grey if ANY of ~49 children was masked — 82.8% of
+  parents grey when only 16.7% are fully masked, including 470 parents with
+  avg score > 0.4. The mask display now greys only fully-masked parents.
+- **Task 7 rescore effect:** guarded on `totalWeight > 0`, and rescore
+  errors set a dismissible banner instead of the terminal error phase —
+  all-zero weights previously locked the app in an unrecoverable screen.
+- **Task 4 `initDB`:** idempotence guard added (module-level promise).
+  StrictMode double-invoked it, costing two wasm instances per session.
+- **Ground truth correction:** per-parcel `overlap_frac` sums range
+  0.4863–1.0 (grid-edge parcels), not "≈1" — the `SUM(overlap_frac)`
+  denominator in `buildParcelScoreSQL` is load-bearing, do not simplify.
+- **Added beyond plan:** `minAcres` shortlist filter (default top-500 was
+  76% sub-half-acre urban lots — median 0.23 ac), parcel-mode warm-up
+  notice (~30 s tessellation freeze previously read as a hang), busy
+  indicator, NaN-safe color ramp, mask registry validation, atomic-ish
+  export downloads (deferred URL revoke).
+
 ## Out of scope (post-MVP, do not build)
 
 Basemap tiles, saved scenarios, res-12 sub-parcel crosswalk, additional counties/criteria, table virtualization beyond top-500, functional-class road weighting.

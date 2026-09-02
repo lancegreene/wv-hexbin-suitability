@@ -109,6 +109,19 @@ describe('hex aggregation', () => {
   });
 });
 
+describe('min-acres shortlist filter', () => {
+  it('excludes parcels under the threshold', async () => {
+    const filtered = { ...cfg, minAcres: 20 };
+    const r = await rows(`SELECT * FROM (${buildParcelScoreSQL(reg, filtered)})`);
+    expect(r).toHaveLength(1);
+    expect(r[0].parcel_id).toBe('P2'); // 40 acres; P1 (12.5) filtered out
+  });
+  it('rejects a non-finite threshold loudly', () => {
+    expect(() => buildParcelScoreSQL(reg, { ...cfg, minAcres: Number.NaN }))
+      .toThrow(/minimum acreage/);
+  });
+});
+
 describe('geometric aggregation', () => {
   it('geometric mean of the same memberships is below WLC and nonzero', async () => {
     const geo = { ...cfg, aggregation: 'geometric' as const };

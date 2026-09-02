@@ -31,6 +31,7 @@ export interface ScoringConfig {
   weights: Record<string, number>;        // criterion key -> raw weight (unnormalized)
   masksEnabled: Record<string, boolean>;  // mask key -> on/off
   slopeThreshold: number;                 // fills {threshold}
+  minAcres: number;                       // shortlist filter: parcels below this are excluded
   aggregation: 'wlc' | 'geometric';
   resolution: 8 | 9 | 10;
   displayMode: 'hex' | 'parcel';

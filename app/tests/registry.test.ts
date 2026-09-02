@@ -20,6 +20,16 @@ describe('registry', () => {
     ).toThrow(/miss_score/);
   });
 
+  it('rejects a mask missing its predicate', () => {
+    expect(() =>
+      loadRegistry({
+        criteria: [{ key: 'x', label: 'x', column: 'c', group: 'g', weight: 1,
+          confidence: 'authoritative', membership: { fn: 'binary' } }],
+        masks: [{ key: 'm', label: 'm', column: 'c' }],
+      }),
+    ).toThrow(/incomplete/);
+  });
+
   it('builds defaults from the registry', () => {
     const cfg = defaultConfig(loadRegistry());
     expect(cfg.weights['slope']).toBeCloseTo(0.2);

@@ -4,8 +4,12 @@ function download(filename: string, mime: string, content: string): void {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([content], { type: mime }));
   a.download = filename;
+  document.body.appendChild(a); // required by some browsers for programmatic clicks
   a.click();
-  URL.revokeObjectURL(a.href);
+  a.remove();
+  // Synchronous revoke is flaky for large blobs (~30 MB GeoJSON): the download
+  // may not have started reading the URL yet
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 
 const csvCell = (v: unknown): string => {

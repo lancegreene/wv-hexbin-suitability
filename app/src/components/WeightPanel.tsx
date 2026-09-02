@@ -59,6 +59,21 @@ export default function WeightPanel({ registry, config, onChange }: Props) {
         </div>
       ))}
 
+      <div className="group-title">Shortlist</div>
+      <div className="controls-row">
+        <label>
+          Min acres{' '}
+          <input
+            type="number" min={0} step={1}
+            value={config.minAcres}
+            onChange={(e) =>
+              onChange({ ...config, minAcres: Math.max(0, Number(e.target.value) || 0) })}
+            style={{ width: 55 }}
+          />
+        </label>
+        <span style={{ color: '#8a919e' }}>0 = no filter</span>
+      </div>
+
       <div className="group-title">Scoring</div>
       <div className="controls-row">
         <label><input type="radio" checked={config.aggregation === 'wlc'}

@@ -16,6 +16,12 @@ export function loadRegistry(raw?: unknown): Registry {
         `an unmatched class must score, not go NULL`);
     }
   }
+  for (const m of reg.masks) {
+    if (!m.key || !m.column || !m.predicate) {
+      throw new Error(`criteria.json: mask ${JSON.stringify(m.key)} is incomplete — ` +
+        `needs key, column, and predicate`);
+    }
+  }
   return reg;
 }
 
@@ -25,6 +31,7 @@ export function defaultConfig(reg: Registry): ScoringConfig {
     weights: Object.fromEntries(reg.criteria.map((c) => [c.key, c.weight])),
     masksEnabled: Object.fromEntries(reg.masks.map((m) => [m.key, true])),
     slopeThreshold: slopeLimit?.default_threshold ?? 40,
+    minAcres: 0,
     aggregation: 'wlc',
     resolution: 8,
     displayMode: 'hex',

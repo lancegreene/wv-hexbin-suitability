@@ -12,9 +12,19 @@ const VIEWS: Record<string, string> = {
 };
 
 let conn: duckdb.AsyncDuckDBConnection | null = null;
+let initPromise: Promise<void> | null = null;
 
-/** Initialize duckdb-wasm and register the pipeline artifacts as views. */
-export async function initDB(): Promise<void> {
+/**
+ * Initialize duckdb-wasm and register the pipeline artifacts as views.
+ * Idempotent: React StrictMode double-invokes effects in dev, and without
+ * this guard every session paid for two wasm instances + double fetches.
+ */
+export function initDB(): Promise<void> {
+  initPromise ??= doInit();
+  return initPromise;
+}
+
+async function doInit(): Promise<void> {
   const bundle = await duckdb.selectBundle({
     mvp: { mainModule: mvpWasmUrl, mainWorker: mvpWorkerUrl },
     eh: { mainModule: ehWasmUrl, mainWorker: ehWorkerUrl },

@@ -65,6 +65,9 @@ FROM (
 
 /** Parcel scores: overlap-weighted mean of cell scores + memberships, joined to attributes. */
 export function buildParcelScoreSQL(reg: Registry, cfg: ScoringConfig): string {
+  if (!Number.isFinite(cfg.minAcres) || cfg.minAcres < 0) {
+    throw new Error(`invalid minimum acreage: ${cfg.minAcres}`);
+  }
   const memberAvgs = reg.criteria
     .map((c) => `SUM(s.m_${c.key} * x.overlap_frac) / SUM(x.overlap_frac) AS m_${c.key}`)
     .join(',\n    ');
@@ -80,6 +83,7 @@ FROM (
   GROUP BY x.parcel_id
 ) agg
 JOIN parcels p USING (parcel_id)
+WHERE p.acres >= ${cfg.minAcres}
 ORDER BY agg.score DESC`;
 }
 
@@ -93,7 +97,10 @@ export function buildHexAggSQL(reg: Registry, cfg: ScoringConfig): string {
       .join(', ')} FROM (${scored}) WHERE in_county`;
   }
   const parent = cfg.resolution === 9 ? 'h3_r9' : 'h3_r8';
+  // AVG, not MIN: a res-8 parent has ~49 children, and MIN painted a parent
+  // "masked" if ANY child was — mislabeling 66% of Raleigh County as excluded
+  // when only 17% actually is (falsified by real data during final review)
   return `
-SELECT ${parent} AS h3, AVG(score) AS score, MIN(mask_factor) AS mask_factor, ${memberAvgs}
+SELECT ${parent} AS h3, AVG(score) AS score, AVG(mask_factor) AS mask_factor, ${memberAvgs}
 FROM (${scored}) WHERE in_county GROUP BY ${parent}`;
 }

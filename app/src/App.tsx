@@ -15,6 +15,8 @@ type Phase = { state: 'loading'; msg: string } | { state: 'error'; msg: string }
 
 export default function App() {
   const [phase, setPhase] = useState<Phase>({ state: 'loading', msg: 'Starting DuckDB…' });
+  const [queryError, setQueryError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [config, setConfig] = useState<ScoringConfig>(() => defaultConfig(registry));
   const [hexRows, setHexRows] = useState<Record<string, unknown>[]>([]);
   const [parcelRows, setParcelRows] = useState<Record<string, unknown>[]>([]);
@@ -42,6 +44,7 @@ export default function App() {
   const rescore = useCallback((cfg: ScoringConfig) => {
     window.clearTimeout(debounceRef.current);
     debounceRef.current = window.setTimeout(async () => {
+      setBusy(true);
       try {
         const t0 = performance.now();
         const [hex, parcels] = await Promise.all([
@@ -50,29 +53,41 @@ export default function App() {
         ]);
         setHexRows(hex);
         setParcelRows(parcels);
+        setQueryError(null);
         console.log(`rescore: ${(performance.now() - t0).toFixed(0)} ms ` +
           `(${hex.length} hexes, ${parcels.length} parcels)`);
       } catch (e) {
-        setPhase({ state: 'error', msg: e instanceof Error ? e.message : String(e) });
+        // Non-terminal: keep the panel usable so the user can recover
+        setQueryError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setBusy(false);
       }
     }, 60);
   }, []);
 
+  const totalWeight = Object.values(config.weights).reduce((s, w) => s + w, 0);
+
   useEffect(() => {
-    if (phase.state === 'ready') rescore(config);
-  }, [phase.state, config, rescore]);
+    if (phase.state === 'ready' && totalWeight > 0) rescore(config);
+  }, [phase.state, config, rescore, totalWeight]);
 
   const parcelScores = useMemo(
     () => new Map(parcelRows.map((r) => [String(r.parcel_id), r])),
     [parcelRows],
   );
-  const totalWeight = Object.values(config.weights).reduce((s, w) => s + w, 0);
 
   if (phase.state === 'loading') return <div className="loading">{phase.msg}</div>;
   if (phase.state === 'error') return <div className="error-screen">{phase.msg}</div>;
 
   return (
     <div className="app">
+      {queryError && (
+        <div className="query-error-banner">
+          scoring failed: {queryError}
+          <button className="secondary" onClick={() => setQueryError(null)}>dismiss</button>
+        </div>
+      )}
+      {busy && <div className="busy-indicator">scoring…</div>}
       <div className="app-main">
         <WeightPanel registry={registry} config={config} onChange={setConfig} />
         {totalWeight > 0 ? (

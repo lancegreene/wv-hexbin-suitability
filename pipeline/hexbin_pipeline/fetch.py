@@ -170,6 +170,21 @@ def load_county(fips):
     return county
 
 
+def adjacent_geoids(counties, fips, buffer_m=100):
+    """GEOIDs of counties adjacent to `fips`, sliver-tolerant.
+
+    Generalized boundary files leave small gaps between neighbors, so
+    strict touches() misses real adjacency — buffer-and-intersect instead.
+    `counties` must be in a metric CRS (caller reprojects).
+    """
+    target = counties[counties["GEOID"] == fips]
+    if len(target) != 1:
+        raise RuntimeError(f"adjacent_geoids: county {fips} not found in boundary file")
+    zone = target.geometry.iloc[0].buffer(buffer_m)
+    hits = counties[counties.geometry.intersects(zone) & (counties["GEOID"] != fips)]
+    return sorted(hits["GEOID"].tolist())
+
+
 def county_bounds(fips):
     """Bbox of the GRID_BUFFER_M-buffered county in EPSG:4326.
 
@@ -190,6 +205,14 @@ def run(fips):
     print(f"fetch: {fips} bounds {bounds}")
 
     download_file(ROADS_URL.format(fips=fips), raw_dir("roads") / f"roads_{fips}.zip")
+
+    import geopandas as gpd  # local, matches county_bounds' convention
+    counties_m = gpd.read_file(raw_dir("county") / "counties.zip").to_crs("EPSG:26917")
+    neighbors = adjacent_geoids(counties_m, fips)
+    print(f"fetch: {len(neighbors)} adjacent counties for the road network: {neighbors}")
+    for n in neighbors:
+        download_file(ROADS_URL.format(fips=n), raw_dir("roads") / f"roads_{n}.zip")
+
     for t in dem_tiles(bounds):
         download_file(DEM_URL.format(t=t), raw_dir("dem") / f"USGS_13_{t}.tif")
     fetch_arcgis_layer(NFHL_LAYER, raw_dir("nfhl") / f"nfhl_{fips}.geojson", bbox_4326=bounds)

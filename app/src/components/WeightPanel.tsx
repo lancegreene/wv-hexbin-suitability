@@ -13,7 +13,7 @@ export default function WeightPanel({ registry, config, onChange }: Props) {
   return (
     <div className="panel">
       {groups.map((g) => (
-        <div key={g}>
+        <section className="panel-card" key={g}>
           <div className="group-title">{g}</div>
           {registry.criteria.filter((c) => c.group === g).map((c) => (
             <div className="slider-row" key={c.key}>
@@ -33,70 +33,78 @@ export default function WeightPanel({ registry, config, onChange }: Props) {
               />
             </div>
           ))}
-        </div>
+        </section>
       ))}
 
-      <div className="group-title">Constraints (hard masks)</div>
-      {registry.masks.map((m) => (
-        <div className="controls-row" key={m.key}>
+      <section className="panel-card">
+        <div className="group-title">Constraints (hard masks)</div>
+        {registry.masks.map((m) => (
+          <div className="controls-row" key={m.key}>
+            <label>
+              <input
+                type="checkbox"
+                checked={config.masksEnabled[m.key]}
+                onChange={(e) =>
+                  onChange({ ...config, masksEnabled: { ...config.masksEnabled, [m.key]: e.target.checked } })}
+              />{' '}
+              {m.label}
+            </label>
+            {m.key === 'slope_limit' && (
+              <input
+                type="number" min={5} max={100} step={5}
+                value={config.slopeThreshold}
+                onChange={(e) => onChange({ ...config, slopeThreshold: Number(e.target.value) })}
+                style={{ width: 55 }}
+              />
+            )}
+          </div>
+        ))}
+      </section>
+
+      <section className="panel-card">
+        <div className="group-title">Shortlist</div>
+        <div className="controls-row">
           <label>
+            Min acres{' '}
             <input
-              type="checkbox"
-              checked={config.masksEnabled[m.key]}
+              type="number" min={0} step={1}
+              value={config.minAcres}
               onChange={(e) =>
-                onChange({ ...config, masksEnabled: { ...config.masksEnabled, [m.key]: e.target.checked } })}
-            />{' '}
-            {m.label}
-          </label>
-          {m.key === 'slope_limit' && (
-            <input
-              type="number" min={5} max={100} step={5}
-              value={config.slopeThreshold}
-              onChange={(e) => onChange({ ...config, slopeThreshold: Number(e.target.value) })}
+                onChange({ ...config, minAcres: Math.max(0, Number(e.target.value) || 0) })}
               style={{ width: 55 }}
             />
-          )}
+          </label>
+          <span style={{ color: '#8a919e' }}>0 = no filter</span>
         </div>
-      ))}
+      </section>
 
-      <div className="group-title">Shortlist</div>
-      <div className="controls-row">
-        <label>
-          Min acres{' '}
-          <input
-            type="number" min={0} step={1}
-            value={config.minAcres}
-            onChange={(e) =>
-              onChange({ ...config, minAcres: Math.max(0, Number(e.target.value) || 0) })}
-            style={{ width: 55 }}
-          />
-        </label>
-        <span style={{ color: '#8a919e' }}>0 = no filter</span>
-      </div>
+      <section className="panel-card">
+        <div className="group-title">Scoring</div>
+        <div className="controls-row">
+          <label><input type="radio" checked={config.aggregation === 'wlc'}
+            onChange={() => onChange({ ...config, aggregation: 'wlc' })} /> Weighted sum</label>
+          <label><input type="radio" checked={config.aggregation === 'geometric'}
+            onChange={() => onChange({ ...config, aggregation: 'geometric' })} /> Geometric</label>
+        </div>
+      </section>
 
-      <div className="group-title">Scoring</div>
-      <div className="controls-row">
-        <label><input type="radio" checked={config.aggregation === 'wlc'}
-          onChange={() => onChange({ ...config, aggregation: 'wlc' })} /> Weighted sum</label>
-        <label><input type="radio" checked={config.aggregation === 'geometric'}
-          onChange={() => onChange({ ...config, aggregation: 'geometric' })} /> Geometric</label>
-      </div>
-
-      <div className="group-title">Display</div>
-      <div className="controls-row">
-        <label>Hex res{' '}
-          <select value={config.resolution}
-            onChange={(e) => onChange({ ...config, resolution: Number(e.target.value) as 8 | 9 | 10 })}>
-            <option value={8}>8 (coarse)</option>
-            <option value={9}>9</option>
-            <option value={10}>10 (full)</option>
-          </select>
-        </label>
-        <label><input type="radio" checked={config.displayMode === 'hex'}
-          onChange={() => onChange({ ...config, displayMode: 'hex' })} /> Hexes</label>
-        <label><input type="radio" checked={config.displayMode === 'parcel'}
-          onChange={() => onChange({ ...config, displayMode: 'parcel' })} /> Parcels</label>
-      </div>
+      <section className="panel-card">
+        <div className="group-title">Display</div>
+        <div className="controls-row">
+          <label>Hex res{' '}
+            <select value={config.resolution}
+              onChange={(e) => onChange({ ...config, resolution: Number(e.target.value) as 8 | 9 | 10 })}>
+              <option value={8}>8 (coarse)</option>
+              <option value={9}>9</option>
+              <option value={10}>10 (full)</option>
+            </select>
+          </label>
+          <label><input type="radio" checked={config.displayMode === 'hex'}
+            onChange={() => onChange({ ...config, displayMode: 'hex' })} /> Hexes</label>
+          <label><input type="radio" checked={config.displayMode === 'parcel'}
+            onChange={() => onChange({ ...config, displayMode: 'parcel' })} /> Parcels</label>
+        </div>
+      </section>
       {total === 0 && <p className="masked-flag">All weights are zero — scoring disabled.</p>}
     </div>
   );

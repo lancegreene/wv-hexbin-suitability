@@ -81,6 +81,17 @@ export default function App() {
 
   return (
     <div className="app">
+      <header className="app-header">
+        <strong>WV Parcel Suitability</strong>
+        <span className="muted">Raleigh County, WV (54081)</span>
+        <span className="spacer" />
+        <span className="muted">
+          {hexRows.length.toLocaleString()} hexes · {parcelRows.length.toLocaleString()} parcels shown
+        </span>
+        {config.basemap !== 'none' && (
+          <span className="muted attribution">Basemap: Esri, Maxar, Earthstar Geographics</span>
+        )}
+      </header>
       {queryError && (
         <div className="query-error-banner">
           scoring failed: {queryError}
@@ -92,7 +103,8 @@ export default function App() {
         <WeightPanel registry={registry} config={config} onChange={setConfig} />
         {totalWeight > 0 ? (
           <MapView config={config} registry={registry} hexRows={hexRows}
-            parcelScores={parcelScores} parcelsGeojson={parcelsGeojson} viewTarget={viewTarget} />
+            parcelScores={parcelScores} parcelsGeojson={parcelsGeojson} viewTarget={viewTarget}
+            onChange={setConfig} />
         ) : (
           <div className="map-wrap loading">All weights are zero — raise at least one slider.</div>
         )}

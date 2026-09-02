@@ -20,6 +20,9 @@ export function membershipSQL(m: MembershipFn, column: string): string {
 }
 
 function maskFactorSQL(reg: Registry, cfg: ScoringConfig): string {
+  if (!Number.isFinite(cfg.slopeThreshold)) {
+    throw new Error(`invalid slope threshold: ${cfg.slopeThreshold} — must be a finite number`);
+  }
   const parts = reg.masks
     .filter((mk) => cfg.masksEnabled[mk.key])
     .map((mk) => {

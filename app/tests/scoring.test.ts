@@ -17,7 +17,10 @@ const reg = loadRegistry();
 // cell C: slope 60 -> trips slope_limit (>40) -> score 0; also nlcd 999
 //         (unlisted class -> miss_score 0.5 must be used, NOT NULL)
 // parcel P1 = 100% cell A                      -> score 0.75
-// parcel P2 = 50% cell A + 50% cell B          -> score 0.375
+// parcel P2 = 80% cell A + 20% cell B          -> score 0.8*0.75 = 0.6
+//   (UNEQUAL fracs on purpose: with 50/50 an unweighted AVG(score) mutation
+//    is indistinguishable from the overlap-weighted mean — found by mutation
+//    testing; masked_frac = 0*0.8 + 1*0.2 = 0.2)
 const FIXTURE = `
 CREATE TABLE cells AS SELECT * FROM (VALUES
   ('a', 'a9', 'a8', true,  20.0, 0.0, 0.0,  0.0, 1::TINYINT, 'authoritative', 1500.0, 3000.0, 0.0, 23::SMALLINT),
@@ -26,7 +29,7 @@ CREATE TABLE cells AS SELECT * FROM (VALUES
 ) t(h3_index, h3_r9, h3_r8, in_county, slope_mean_pct, slope_pct_gt15, flood_pct_a_ae,
     floodway_pct, water_in_service, water_conf, road_dist_m, transmission_dist_m, mined_pct, nlcd_mode);
 CREATE TABLE xwalk AS SELECT * FROM (VALUES
-  ('P1', 'a', 1.0), ('P2', 'a', 0.5), ('P2', 'b', 0.5)
+  ('P1', 'a', 1.0), ('P2', 'a', 0.8), ('P2', 'b', 0.2)
 ) t(parcel_id, h3_index, overlap_frac);
 CREATE TABLE parcels AS SELECT * FROM (VALUES
   ('P1', 12.5, 'OWNER ONE'), ('P2', 40.0, 'OWNER TWO')
@@ -88,8 +91,8 @@ describe('parcel scores', () => {
   it('overlap-weighted means match hand computation', async () => {
     const r = await rows(`SELECT * FROM (${buildParcelScoreSQL(reg, cfg)}) ORDER BY parcel_id`);
     expect(Number(r[0].score)).toBeCloseTo(0.75, 6);   // P1
-    expect(Number(r[1].score)).toBeCloseTo(0.375, 6);  // P2: half its area masked
-    expect(Number(r[1].masked_frac)).toBeCloseTo(0.5, 6);
+    expect(Number(r[1].score)).toBeCloseTo(0.6, 6);    // P2: 0.8*0.75 + 0.2*0
+    expect(Number(r[1].masked_frac)).toBeCloseTo(0.2, 6);
     expect(r[0].FullOwnerName).toBe('OWNER ONE');
   });
 });

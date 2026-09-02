@@ -2,11 +2,14 @@ import { cellToLatLng } from 'h3-js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MapView, { type ViewTarget } from './components/MapView';
 import RankTable from './components/RankTable';
+import SettingsDrawer from './components/SettingsDrawer';
 import WeightPanel from './components/WeightPanel';
 import { initDB, query } from './db';
 import { exportCSV, exportGeoJSON } from './exports';
-import { defaultConfig, loadRegistry } from './registry';
+import { loadCurrent, saveCurrent } from './persistence';
+import { loadRegistry } from './registry';
 import { buildHexAggSQL, buildParcelScoreSQL } from './scoring';
+import { validateSteps } from './steps';
 import type { ScoringConfig } from './types';
 
 const registry = loadRegistry();
@@ -17,12 +20,18 @@ export default function App() {
   const [phase, setPhase] = useState<Phase>({ state: 'loading', msg: 'Starting DuckDB…' });
   const [queryError, setQueryError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [config, setConfig] = useState<ScoringConfig>(() => defaultConfig(registry));
+  const [config, setConfig] = useState<ScoringConfig>(() => loadCurrent(registry));
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [hexRows, setHexRows] = useState<Record<string, unknown>[]>([]);
   const [parcelRows, setParcelRows] = useState<Record<string, unknown>[]>([]);
   const [parcelsGeojson, setParcelsGeojson] = useState<unknown | null>(null);
   const [viewTarget, setViewTarget] = useState<ViewTarget>({ longitude: -81.2, latitude: 37.75, zoom: 9 });
   const debounceRef = useRef<number>(0);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => saveCurrent(config), 300);
+    return () => window.clearTimeout(t);
+  }, [config]);
 
   useEffect(() => {
     (async () => {
@@ -67,9 +76,11 @@ export default function App() {
 
   const totalWeight = Object.values(config.weights).reduce((s, w) => s + w, 0);
 
+  const stepsValid = Object.entries(config.normalization).every(
+    ([, ov]) => ov.mode !== 'steps' || validateSteps(ov.steps).length === 0);
   useEffect(() => {
-    if (phase.state === 'ready' && totalWeight > 0) rescore(config);
-  }, [phase.state, config, rescore, totalWeight]);
+    if (phase.state === 'ready' && totalWeight > 0 && stepsValid) rescore(config);
+  }, [phase.state, config, rescore, totalWeight, stepsValid]);
 
   const parcelScores = useMemo(
     () => new Map(parcelRows.map((r) => [String(r.parcel_id), r])),
@@ -88,6 +99,7 @@ export default function App() {
         <span className="muted">
           {hexRows.length.toLocaleString()} hexes · {parcelRows.length.toLocaleString()} parcels shown
         </span>
+        <button className="secondary" onClick={() => setSettingsOpen((v) => !v)}>⚙ settings</button>
         {config.basemap !== 'none' && (
           <span className="muted attribution">Basemap: Esri, Maxar, Earthstar Geographics</span>
         )}
@@ -108,8 +120,12 @@ export default function App() {
         ) : (
           <div className="map-wrap loading">All weights are zero — raise at least one slider.</div>
         )}
+        {settingsOpen && (
+          <SettingsDrawer registry={registry} config={config} onChange={setConfig}
+            onClose={() => setSettingsOpen(false)} />
+        )}
       </div>
-      <RankTable registry={registry} rows={parcelRows}
+      <RankTable registry={registry} config={config} rows={parcelRows}
         onRowClick={(id) => {
           const row = parcelRows.find((r) => String(r.parcel_id) === id);
           if (!row) return;
@@ -121,9 +137,9 @@ export default function App() {
             setViewTarget({ longitude: lng, latitude: lat, zoom: 14.5 });
           });
         }}
-        onExportCSV={() => exportCSV(parcelRows, registry)}
+        onExportCSV={() => exportCSV(parcelRows, registry, config)}
         onExportGeoJSON={() => parcelsGeojson &&
-          exportGeoJSON(parcelRows, parcelsGeojson as never)}
+          exportGeoJSON(parcelRows, parcelsGeojson as never, config)}
       />
     </div>
   );

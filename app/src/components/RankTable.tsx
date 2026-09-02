@@ -1,16 +1,18 @@
-import type { Registry } from '../types';
+import { labelForScore } from '../steps';
+import type { Registry, ScoringConfig } from '../types';
 
 const TOP_N = 500; // table shows the head; exports include every parcel
 
 interface Props {
   registry: Registry;
+  config: ScoringConfig;
   rows: Record<string, unknown>[];
   onRowClick: (parcelId: string) => void;
   onExportCSV: () => void;
   onExportGeoJSON: () => void;
 }
 
-export default function RankTable({ registry, rows, onRowClick, onExportCSV, onExportGeoJSON }: Props) {
+export default function RankTable({ registry, config, rows, onRowClick, onExportCSV, onExportGeoJSON }: Props) {
   return (
     <div className="rank-dock">
       <div className="controls-row" style={{ padding: '6px 8px' }}>
@@ -39,9 +41,17 @@ export default function RankTable({ registry, rows, onRowClick, onExportCSV, onE
               <td className={Number(r.masked_frac) > 0 ? 'masked-flag' : ''}>
                 {Number(r.masked_frac) > 0 ? `${(Number(r.masked_frac) * 100).toFixed(0)}%` : '—'}
               </td>
-              {registry.criteria.map((c) => (
-                <td key={c.key}>{Number(r[`m_${c.key}`]).toFixed(2)}</td>
-              ))}
+              {registry.criteria.map((c) => {
+                const v = Number(r[`m_${c.key}`]);
+                const ov = config.normalization[c.key];
+                const lab = ov?.mode === 'steps' ? labelForScore(ov.steps, v) : null;
+                return (
+                  <td key={c.key}>
+                    {v.toFixed(2)}
+                    {lab && <div className="class-label">{lab.exact ? '' : '~'}{lab.label}</div>}
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>

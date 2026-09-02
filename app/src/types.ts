@@ -1,0 +1,37 @@
+export type MembershipFn =
+  | { fn: 'small'; midpoint: number; spread: number }
+  | { fn: 'binary' }
+  | { fn: 'lookup'; miss_score: number; table: Record<string, number> };
+
+export interface Criterion {
+  key: string;
+  label: string;
+  column: string;
+  group: string;
+  membership: MembershipFn;
+  weight: number;
+  confidence: string;
+  confidence_column?: string;
+}
+
+export interface Mask {
+  key: string;
+  label: string;
+  column: string;
+  predicate: string; // "> 0" or "> {threshold}"
+  default_threshold?: number;
+}
+
+export interface Registry {
+  criteria: Criterion[];
+  masks: Mask[];
+}
+
+export interface ScoringConfig {
+  weights: Record<string, number>;        // criterion key -> raw weight (unnormalized)
+  masksEnabled: Record<string, boolean>;  // mask key -> on/off
+  slopeThreshold: number;                 // fills {threshold}
+  aggregation: 'wlc' | 'geometric';
+  resolution: 8 | 9 | 10;
+  displayMode: 'hex' | 'parcel';
+}

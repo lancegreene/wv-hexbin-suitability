@@ -52,3 +52,8 @@ button.secondary { background: #3a4150; }
 .steps-editor td, .steps-editor th { padding: 2px 4px; text-align: left; }
 .steps-errors { color: #ff7b72; font-size: 12px; margin-top: 4px; white-space: pre-wrap; }
 .class-label { font-size: 10px; color: #8a919e; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.help-wrap { position: relative; display: inline-block; margin-left: 6px; }
+.help-icon { background: none; border: none; color: #8a919e; padding: 0; font-size: 12px; cursor: help; line-height: 1; }
+.help-icon:hover, .help-icon:focus { color: #d9dce1; }
+.help-tip { display: none; position: absolute; left: 50%; transform: translateX(-30%); top: 18px; z-index: 40; width: 280px; background: #262b36; border: 1px solid #3a4150; border-radius: 6px; padding: 8px 10px; font-size: 12px; line-height: 1.45; color: #d9dce1; text-transform: none; letter-spacing: normal; white-space: normal; text-align: left; box-shadow: 0 4px 14px #0008; }
+.help-wrap:hover .help-tip, .help-icon:focus + .help-tip { display: block; }

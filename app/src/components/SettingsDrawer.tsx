@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import Help from './Help';
 import { deletePreset, listPresets, loadPreset, parsePreset, savePreset, serializePreset } from '../persistence';
 import { degToPct, effectiveSteps, metersToMiles, milesToMeters, pctToDeg, validateSteps } from '../steps';
 import type { Criterion, Registry, ScoringConfig, Step } from '../types';
@@ -109,7 +110,7 @@ export default function SettingsDrawer({ registry, config, onChange, onClose }: 
         };
         return (
           <section className="panel-card" key={c.key}>
-            <div className="group-title">{c.label}</div>
+            <div className="group-title">{c.label}<Help id="normalization" /></div>
             <div className="controls-row">
               {isDefaultSteps ? (
                 <span>
@@ -143,7 +144,7 @@ export default function SettingsDrawer({ registry, config, onChange, onClose }: 
       })}
 
       <section className="panel-card">
-        <div className="group-title">Presets</div>
+        <div className="group-title">Presets<Help id="presets" /></div>
         <div className="controls-row">
           <input type="text" placeholder="preset name" value={presetName}
             onChange={(e) => setPresetName(e.target.value)} />

@@ -1,3 +1,4 @@
+import Help from './Help';
 import type { Registry, ScoringConfig } from '../types';
 
 interface Props {
@@ -14,7 +15,7 @@ export default function WeightPanel({ registry, config, onChange }: Props) {
     <div className="panel">
       {groups.map((g) => (
         <section className="panel-card" key={g}>
-          <div className="group-title">{g}</div>
+          <div className="group-title">{g}<Help id="weights" /></div>
           {registry.criteria.filter((c) => c.group === g).map((c) => (
             <div className="slider-row" key={c.key}>
               <label>
@@ -37,7 +38,7 @@ export default function WeightPanel({ registry, config, onChange }: Props) {
       ))}
 
       <section className="panel-card">
-        <div className="group-title">Constraints (hard masks)</div>
+        <div className="group-title">Constraints (hard masks)<Help id="constraints" /></div>
         {registry.masks.map((m) => (
           <div className="controls-row" key={m.key}>
             <label>
@@ -62,7 +63,7 @@ export default function WeightPanel({ registry, config, onChange }: Props) {
       </section>
 
       <section className="panel-card">
-        <div className="group-title">Shortlist</div>
+        <div className="group-title">Shortlist<Help id="shortlist" /></div>
         <div className="controls-row">
           <label>
             Min acres{' '}
@@ -79,7 +80,7 @@ export default function WeightPanel({ registry, config, onChange }: Props) {
       </section>
 
       <section className="panel-card">
-        <div className="group-title">Scoring</div>
+        <div className="group-title">Scoring<Help id="scoring" /></div>
         <div className="controls-row">
           <label><input type="radio" checked={config.aggregation === 'wlc'}
             onChange={() => onChange({ ...config, aggregation: 'wlc' })} /> Weighted sum</label>
@@ -89,7 +90,7 @@ export default function WeightPanel({ registry, config, onChange }: Props) {
       </section>
 
       <section className="panel-card">
-        <div className="group-title">Display</div>
+        <div className="group-title">Display<Help id="display" /></div>
         <div className="controls-row">
           <label>Hex res{' '}
             <select value={config.resolution}

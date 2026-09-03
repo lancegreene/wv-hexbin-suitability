@@ -36,6 +36,13 @@ describe('reconcile', () => {
     expect('bogus' in out.weights).toBe(false);
     expect(out.weights.flood).toBeCloseTo(0.15); // filled from defaults
   });
+  it('drops a curve override on a steps-default criterion (no curve exists)', () => {
+    const raw = { ...defaultConfig(reg),
+      normalization: { hwy_access: { mode: 'curve' } } };
+    const out = reconcile(raw, reg);
+    expect(out.normalization.hwy_access).toBeUndefined();
+  });
+
   it('drops an invalid steps override with the rest intact', () => {
     const raw = { ...defaultConfig(reg),
       normalization: { slope: { mode: 'steps', steps: [{ score: 2, label: '' }] } } };

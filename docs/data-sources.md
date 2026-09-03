@@ -100,6 +100,19 @@ Raleigh County (FIPS 54081). Do not re-discover these — read the section first
 
 **Roads — WVDOT, or Census TIGER as fallback.** Weight distance by
 functional class; an unimproved road is not site access.
+- **Two TIGER products, not interchangeable:** `ROADS` files are whole-road
+  FEATURES spanning many intersections (only ~21% of endpoints shared) —
+  fine for distance-to-road, **unusable for routing**. The drive-time graph
+  requires `EDGES` (topological primitives, split at every node,
+  `ROADFLG='Y'` + an MTFCC allowlist — `ROADFLG` alone admits walkways and
+  bike trails, and one trail bridging two road clusters silently shortens
+  whole neighborhoods).
+- **Access-point rule (deliberate):** ramp (S1630) endpoints touching a
+  surface road — this includes grade-separated interchanges on
+  non-interstate expressways (US-19 Corridor L, Coalfields Expressway),
+  not just I-64/I-77. For WV truck-access screening that is the intended
+  meaning of "highway access"; ~half of Raleigh-area access points are on
+  the Appalachian corridor system.
 
 **Broadband — FCC Broadband Data Collection / National Broadband Map.**
 

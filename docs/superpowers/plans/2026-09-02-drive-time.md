@@ -504,5 +504,29 @@ git commit -m "feat: hwy_access drive-time measurement replaces roads criterion"
 - [ ] Run-log entry in `docs/data-sources.md` (access-point count, median/max minutes, reachable %, the nearest-reachable-node caveat).
 - [ ] Commit docs; final whole-branch review (this feature crosses pipeline+registry+app — dispatch the integration reviewer); merge per finishing-a-development-branch.
 
+## Post-execution corrections (2026-09-02 — real data falsified plan assumptions)
+
+The code is authoritative where it differs from the task snippets above:
+
+- **TIGER EDGES, not ROADS.** The ROADS product is whole-road features
+  (21% endpoint sharing); the graph built from it shattered — 98% of cells
+  unreachable. EDGES (pre-noded primitives, `ROADFLG='Y'` + `ROAD_MTFCC`
+  allowlist) yields 129k edges / 116k nodes / 99.0% reachable.
+- **Nearest-REACHABLE-node mapping with a 5 km max access leg**, not
+  nearest-any-node-NULL: the reviewer re-ran the original rule and it NULLs
+  2.0% of cells (driveway-stub artifact), which validate's 1% gate rightly
+  blocks. The shipped rule is the spec's intent; the leg cap keeps honesty.
+- **524 access points ≈ 90 interchange areas across 7 counties** — the
+  plan's "10-60" was a per-county whole-feature guess; EDGES splits each
+  interchange into ~6 ramp-endpoint nodes. All real STOP gates passed.
+- **Access rule includes non-interstate expressway interchanges** (248 of
+  524 never touch S1100): confirmed as intended for WV truck-access
+  screening and documented in data-sources.md.
+- **Post-review hardening:** MTFCC allowlist (pedestrian classes were
+  routable), CRS guard in build_graph, map_cells_to_minutes extracted and
+  unit-tested (leg-cap NULL path now has coverage), curve-override on
+  steps-default criteria dropped at reconcile (score/label divergence),
+  dead neighbor-ROADS downloads removed.
+
 ## Out of scope
 One-ways/turn restrictions, congestion, other destination sets, per-county speed calibration, multi-county display.

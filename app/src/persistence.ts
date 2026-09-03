@@ -38,7 +38,16 @@ export function reconcile(raw: unknown, reg: Registry): ScoringConfig {
   if (r.normalization && typeof r.normalization === 'object') {
     for (const [k, ov] of Object.entries(r.normalization as Record<string, NormalizationOverride>)) {
       if (!known.has(k)) { console.warn(`preset: dropping normalization for unknown '${k}'`); continue; }
-      if (ov?.mode === 'curve') out.normalization[k] = ov;
+      if (ov?.mode === 'curve') {
+        const crit = reg.criteria.find((c) => c.key === k);
+        if (crit?.membership.fn === 'steps') {
+          // A steps-default criterion has no curve: scoring would use the
+          // default steps while labels/drawer saw "curve" — silent divergence
+          console.warn(`preset: '${k}' has no curve to fall back to — dropping curve override`);
+          continue;
+        }
+        out.normalization[k] = ov;
+      }
       else if (ov?.mode === 'steps' && Array.isArray(ov.steps) && validateSteps(ov.steps).length === 0) {
         out.normalization[k] = ov;
       } else console.warn(`preset: dropping invalid classes for '${k}'`);

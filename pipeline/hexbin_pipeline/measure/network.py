@@ -13,6 +13,12 @@ SPEEDS = {"S1100": 65, "S1200": 45, "S1400": 30, "S1500": 15,
           "S1630": 35, "S1640": 30}
 DEFAULT_MPH = 25
 
+# Drivable classes only. ROADFLG='Y' alone admits walkways (S1710) and bike
+# trails (S1820), and one trail bridging two road clusters silently shaves
+# minutes off whole cell neighborhoods — allowlist, don't denylist.
+ROAD_MTFCC = {"S1100", "S1200", "S1400", "S1500", "S1630", "S1640",
+              "S1730", "S1740", "S1750", "S1780"}
+
 SURFACE = {"S1200", "S1400", "S1500", "S1640"}  # roads you can be ON before a ramp
 
 
@@ -27,6 +33,10 @@ def build_graph(roads_m):
     Each LineString contributes one edge between its snapped endpoints,
     weighted by full geometric length (interior curvature counted).
     """
+    if roads_m.crs is None or roads_m.crs.is_geographic:
+        raise RuntimeError("build_graph: roads must be in a metric CRS — a geographic "
+                           "frame collapses the 1 m snap grid into nonsense that would "
+                           "score plausibly and wrongly")
     g = nx.Graph()
     for mtfcc, geom in zip(roads_m["MTFCC"], roads_m.geometry):
         if geom is None or geom.is_empty:

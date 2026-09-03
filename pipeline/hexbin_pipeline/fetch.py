@@ -212,11 +212,12 @@ def run(fips):
     download_file(ROADS_URL.format(fips=fips), raw_dir("roads") / f"roads_{fips}.zip")
 
     import geopandas as gpd  # local, matches county_bounds' convention
-    counties_m = gpd.read_file(raw_dir("county") / "counties.zip").to_crs("EPSG:26917")
+    from .measure.common import UTM
+    counties_m = gpd.read_file(raw_dir("county") / "counties.zip").to_crs(UTM)
     neighbors = adjacent_geoids(counties_m, fips)
     print(f"fetch: {len(neighbors)} adjacent counties for the road network: {neighbors}")
-    for n in neighbors:
-        download_file(ROADS_URL.format(fips=n), raw_dir("roads") / f"roads_{n}.zip")
+    # EDGES only for the drive-time graph — the roads module needs just the
+    # target county's ROADS file (downloaded above)
     for f in [fips] + neighbors:
         download_file(EDGES_URL.format(fips=f), raw_dir("edges") / f"edges_{f}.zip")
 

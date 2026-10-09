@@ -1,4 +1,5 @@
 import * as duckdb from '@duckdb/duckdb-wasm';
+import { assetUrl } from './assetUrl';
 import ehWorkerUrl from '@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url';
 import ehWasmUrl from '@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url';
 import mvpWorkerUrl from '@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url';
@@ -35,7 +36,7 @@ async function doInit(): Promise<void> {
   conn = await db.connect();
 
   for (const name of ARTIFACTS) {
-    const url = new URL(`/${name}`, window.location.origin).href;
+    const url = assetUrl(name);
     const head = await fetch(url, { method: 'HEAD' });
     if (!head.ok) {
       throw new Error(
@@ -49,7 +50,7 @@ async function doInit(): Promise<void> {
   }
 
   for (const name of ['parcels.geojson', 'county_boundary.geojson']) {
-    const head = await fetch(`/${name}`, { method: 'HEAD' });
+    const head = await fetch(assetUrl(name), { method: 'HEAD' });
     if (!head.ok) {
       throw new Error(
         `artifact missing: ${name} (HTTP ${head.status}).\n` +

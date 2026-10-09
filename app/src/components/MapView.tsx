@@ -4,6 +4,7 @@ import DeckGL from '@deck.gl/react';
 import { useEffect, useState } from 'react';
 import MapControls from './MapControls';
 import Legend from './Legend';
+import { assetUrl } from '../assetUrl';
 import { effectiveSteps, labelForScore } from '../steps';
 import type { Registry, ScoringConfig } from '../types';
 
@@ -93,7 +94,7 @@ export default function MapView({ config, registry, hexRows, parcelScores, parce
   const baseLayers =
     config.basemap === 'none' ? [] : TILE_URLS[config.basemap].map((t, i) => esriTileLayer(`base-${config.basemap}-${i}`, t));
   const outline = new GeoJsonLayer({
-    id: 'county-outline', data: '/county_boundary.geojson',
+    id: 'county-outline', data: assetUrl('county_boundary.geojson'),
     stroked: true, filled: false, getLineColor: [255, 255, 255, 220],
     lineWidthMinPixels: 1.5, pickable: false,
   });

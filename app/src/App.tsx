@@ -4,6 +4,7 @@ import MapView, { type ViewTarget } from './components/MapView';
 import RankTable from './components/RankTable';
 import SettingsDrawer from './components/SettingsDrawer';
 import WeightPanel from './components/WeightPanel';
+import { assetUrl } from './assetUrl';
 import { initDB, query } from './db';
 import { exportCSV, exportGeoJSON } from './exports';
 import { loadCurrent, saveCurrent } from './persistence';
@@ -38,7 +39,7 @@ export default function App() {
       try {
         await initDB();
         setPhase({ state: 'loading', msg: 'Loading parcel geometry…' });
-        const gj = await (await fetch('/parcels.geojson')).json();
+        const gj = await (await fetch(assetUrl('parcels.geojson'))).json();
         setParcelsGeojson(gj);
         const [center] = await query(`SELECT h3_index FROM cells WHERE in_county LIMIT 1`);
         const [lat, lng] = cellToLatLng(String(center.h3_index));
